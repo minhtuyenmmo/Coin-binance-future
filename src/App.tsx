@@ -1,0 +1,268 @@
+import { useEffect, useState } from 'react';
+import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, Target, TrendingUp, Zap } from 'lucide-react';
+import { fetchTopFutures, SignalData } from './lib/binance';
+import { cn } from './lib/utils';
+import { motion, AnimatePresence } from 'motion/react';
+
+export default function App() {
+  const [signals, setSignals] = useState<SignalData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const loadData = async () => {
+    setLoading(true);
+    const data = await fetchTopFutures();
+    // Khuyến khích rate win thực tế hơn trên bảng chính
+    setSignals(data);
+    setLastUpdated(new Date());
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadData();
+    // Polling every 15 seconds to simulate realtime
+    const interval = setInterval(loadData, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const topSignals = [...signals].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
+  const tableSignals = [...signals].sort((a, b) => b.volume - a.volume);
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200 selection:bg-emerald-500/30 font-sans pb-20">
+      {/* Header */}
+      <header className="border-b border-white/5 bg-slate-950/50 backdrop-blur-xl sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="bg-emerald-500/10 p-2 rounded-xl ring-1 ring-emerald-500/20">
+              <TrendingUp className="w-5 h-5 text-emerald-400" />
+            </div>
+            <h1 className="text-xl font-bold tracking-tight text-white">
+              Binance<span className="text-emerald-400">Future</span> AI
+            </h1>
+          </div>
+          
+          <div className="flex items-center gap-4 text-sm">
+            {lastUpdated && (
+              <span className="text-slate-400 hidden sm:inline-block">
+                Cập nhật lúc: {lastUpdated.toLocaleTimeString('vi-VN')}
+              </span>
+            )}
+            <button
+              onClick={loadData}
+              disabled={loading}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+              <span className="hidden sm:inline-block">Làm mới</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
+        {/* Intro */}
+        <div>
+          <h2 className="text-2xl font-semibold text-white tracking-tight">Top 3 Tín Hiệu Nổi Bật</h2>
+          <p className="text-slate-400 mt-1">Các đồng coin có xác suất thắng cao nhất theo phân tích dòng tiền và động lượng.</p>
+        </div>
+
+        {/* Top 3 Cards */}
+        {loading && signals.length === 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-48 bg-slate-900/50 rounded-2xl animate-pulse border border-slate-800"></div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <AnimatePresence>
+              {topSignals.map((signal, index) => (
+                <TopCard key={signal.symbol} signal={signal} rank={index + 1} />
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* Main Board */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-white tracking-tight">Bảng Tín Hiệu Toàn Thị Trường</h2>
+          </div>
+          
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 overflow-hidden backdrop-blur-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800 hidden sm:table-header-group">
+                  <tr>
+                    <th className="px-6 py-4 font-medium">Cặp giao dịch (USDT)</th>
+                    <th className="px-6 py-4 font-medium">Giá hiện tại</th>
+                    <th className="px-6 py-4 font-medium">Tín hiệu</th>
+                    <th className="px-6 py-4 font-medium">Vào lệnh (Entry)</th>
+                    <th className="px-6 py-4 font-medium">Chốt lời (TP)</th>
+                    <th className="px-6 py-4 font-medium">Cắt lỗ (SL)</th>
+                    <th className="px-6 py-4 font-medium text-right">Tỉ lệ thắng</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50">
+                  {loading && signals.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center text-slate-500">Đang tải dữ liệu từ Binance...</td>
+                    </tr>
+                  ) : (
+                    tableSignals.map((signal) => (
+                      <TableRow key={signal.symbol} signal={signal} />
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        
+        <div className="text-center text-xs text-slate-500 italic mt-8 border-t border-slate-800 pt-8">
+          <p>⚠️ Cảnh báo: Giao dịch Futures mang rủi ro cao. Ứng dụng này cung cấp tín hiệu mang tính chất tham khảo dựa trên thuật toán giả lập.</p>
+          <p>Không nên xem đây là lời khuyên đầu tư tài chính.</p>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function TopCard({ signal, rank }: { signal: SignalData; rank: number }) {
+  const isLong = signal.type === 'LONG';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3, delay: rank * 0.1 }}
+      className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40 p-6 flex flex-col hover:border-slate-700 transition-colors group"
+    >
+      {/* Background Glow */}
+      <div className={cn(
+        "absolute -top-24 -right-24 w-48 h-48 rounded-full blur-3xl opacity-20 group-hover:opacity-30 transition-opacity",
+        isLong ? "bg-emerald-500" : "bg-rose-500"
+      )} />
+
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+              #{rank}
+            </span>
+            <h3 className="font-bold text-lg text-white">
+              {signal.symbol.replace('USDT', '')}
+              <span className="text-slate-500 text-sm font-normal">/USDT</span>
+            </h3>
+          </div>
+          <p className="text-2xl font-mono mt-1 font-semibold text-white tracking-tight">
+            ${signal.price}
+          </p>
+        </div>
+        
+        <div className={cn(
+          "px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold shadow-sm",
+          isLong ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20" : "text-rose-400 bg-rose-500/10 border border-rose-500/20"
+        )}>
+          {isLong ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+          {signal.type} {signal.leverage}x
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="bg-slate-950/50 p-3 rounded-xl border border-slate-800/80">
+          <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+            <Crosshair className="w-3.5 h-3.5" />
+            <span className="text-xs uppercase font-medium">Vào Lệnh</span>
+          </div>
+          <div className="font-mono text-sm text-slate-200">${signal.entry}</div>
+        </div>
+        <div className="bg-slate-950/50 p-3 rounded-xl border border-slate-800/80">
+          <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+            <Target className="w-3.5 h-3.5" />
+            <span className="text-xs uppercase font-medium">Chốt Lời</span>
+          </div>
+          <div className={cn("font-mono text-sm", isLong ? "text-emerald-400" : "text-emerald-400")}>${signal.tp}</div>
+        </div>
+      </div>
+
+      <div className="mt-auto pt-4 border-t border-slate-800 flex justify-between items-center">
+        <div className="flex flex-col">
+          <span className="text-xs text-slate-500 flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> Cắt lỗ (SL)</span>
+          <span className="font-mono text-sm text-rose-400">${signal.sl}</span>
+        </div>
+        <div className="flex flex-col items-end">
+          <span className="text-xs text-slate-500 flex items-center gap-1">Tỉ lệ thắng <Percent className="w-3 h-3" /></span>
+          <span className="font-bold text-emerald-400 text-lg flex items-center gap-1">
+             {signal.winRate}%
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function TableRow({ signal }: { signal: SignalData }) {
+  const isLong = signal.type === 'LONG';
+  
+  return (
+    <tr className="hover:bg-slate-800/30 transition-colors flex flex-col sm:table-row px-4 py-4 sm:p-0 border-b border-slate-800/50 sm:border-b-0">
+      <td className="sm:px-6 sm:py-4">
+        <div className="flex items-center justify-between sm:justify-start">
+          <div className="font-medium text-white flex items-center gap-1.5">
+            {signal.symbol.replace('USDT', '')}
+            <span className="text-slate-500 text-xs">USDT</span>
+          </div>
+          {/* Mobile view signal badge */}
+          <div className={cn(
+            "sm:hidden px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1",
+            isLong ? "text-emerald-400 bg-emerald-500/10" : "text-rose-400 bg-rose-500/10"
+          )}>
+            {isLong ? <ArrowUpRight className="w-3 h-3"/> : <ArrowDownRight className="w-3 h-3"/>}
+            {signal.type} {signal.leverage}x
+          </div>
+        </div>
+      </td>
+      
+      <td className="sm:px-6 sm:py-4 mt-2 sm:mt-0 font-mono text-white flex justify-between sm:table-cell">
+        <span className="sm:hidden text-slate-500 text-sm">Giá:</span>
+        ${signal.price}
+        <span className={cn("ml-2 text-xs", signal.change24h > 0 ? "text-emerald-400" : "text-rose-400")}>
+          {signal.change24h > 0 ? '+' : ''}{signal.change24h.toFixed(2)}%
+        </span>
+      </td>
+      
+      <td className="sm:px-6 sm:py-4 hidden sm:table-cell">
+        <div className={cn(
+          "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold",
+          isLong ? "text-emerald-400 bg-emerald-500/10" : "text-rose-400 bg-rose-500/10"
+        )}>
+          {signal.type} {signal.leverage}x
+        </div>
+      </td>
+      
+      <td className="sm:px-6 sm:py-4 font-mono text-slate-300 flex justify-between sm:table-cell mt-1 sm:mt-0">
+        <span className="sm:hidden text-slate-500 text-sm">Entry:</span>
+        ${signal.entry}
+      </td>
+      <td className="sm:px-6 sm:py-4 font-mono text-emerald-400 flex justify-between sm:table-cell mt-1 sm:mt-0">
+         <span className="sm:hidden text-slate-500 text-sm">TP:</span>
+        ${signal.tp}
+      </td>
+      <td className="sm:px-6 sm:py-4 font-mono text-rose-400 flex justify-between sm:table-cell mt-1 sm:mt-0">
+         <span className="sm:hidden text-slate-500 text-sm">SL:</span>
+        ${signal.sl}
+      </td>
+      
+      <td className="sm:px-6 sm:py-4 font-bold text-right flex justify-between sm:table-cell mt-2 sm:mt-0 pt-2 border-t border-slate-800 sm:border-0 sm:pt-0">
+        <span className="sm:hidden text-slate-500 text-sm font-normal">Tỉ lệ thắng:</span>
+        <div className="flex items-center gap-1.5 justify-end">
+          <Zap className="w-3.5 h-3.5 text-yellow-500" />
+          <span className="text-white">{signal.winRate}%</span>
+        </div>
+      </td>
+    </tr>
+  );
+}
