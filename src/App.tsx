@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, Target, TrendingUp, Zap, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, Zap, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { Timeframe, fetchTopFutures, SignalData } from './lib/binance';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 export default function App() {
   const [timeframe, setTimeframe] = useState<Timeframe>('1h');
@@ -10,6 +12,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [winRateSort, setWinRateSort] = useState<'desc' | 'asc'>('desc');
+  const [filterWashTrade, setFilterWashTrade] = useState<boolean>(true);
 
   const loadData = async (tf: Timeframe) => {
     setLoading(true);
@@ -27,8 +30,9 @@ export default function App() {
     return () => clearInterval(interval);
   }, [timeframe]);
 
-  const topSignals = [...signals].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
-  const tableSignals = [...signals].sort((a, b) => {
+  const filteredSignals = signals.filter(s => !filterWashTrade || !s.hasFakeVolume);
+  const topSignals = [...filteredSignals].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
+  const tableSignals = [...filteredSignals].sort((a, b) => {
     return winRateSort === 'desc' ? b.winRate - a.winRate : a.winRate - b.winRate;
   });
 
@@ -123,15 +127,30 @@ export default function App() {
 
         {/* Main Board */}
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
             <h2 className="text-xl font-semibold text-white tracking-tight">Bảng Tín Hiệu Toàn Thị Trường</h2>
-            <button
-              onClick={() => setWinRateSort(prev => prev === 'desc' ? 'asc' : 'desc')}
-              className="sm:hidden flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-900 border border-slate-800 text-sm text-slate-300 hover:text-white"
-            >
-              <span>Sắp xếp Rate</span>
-              {winRateSort === 'desc' ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setFilterWashTrade(!filterWashTrade)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-all",
+                  filterWashTrade 
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
+                    : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200"
+                )}
+              >
+                {filterWashTrade ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+                <span className="font-medium">Lọc Volume Ảo</span>
+              </button>
+              
+              <button
+                onClick={() => setWinRateSort(prev => prev === 'desc' ? 'asc' : 'desc')}
+                className="sm:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-sm text-slate-300 hover:text-white"
+              >
+                <span>Sắp xếp Rate</span>
+                {winRateSort === 'desc' ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
           
           <div className="rounded-2xl border border-slate-800 bg-slate-900/40 overflow-hidden backdrop-blur-sm">
@@ -204,9 +223,14 @@ function TopCard({ signal, rank }: { signal: SignalData; rank: number }) {
             <span className="text-xs font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300">
               #{rank}
             </span>
-            <h3 className="font-bold text-lg text-white">
+            <h3 className="font-bold text-lg text-white flex items-center gap-1.5">
               {signal.symbol.replace('USDT', '')}
               <span className="text-slate-500 text-sm font-normal">/USDT</span>
+              {signal.hasFakeVolume && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20" title="Phát hiện Volume ảo">
+                  <ShieldAlert className="w-3 h-3" /> Ảo
+                </span>
+              )}
             </h3>
           </div>
           <p className="text-2xl font-mono mt-1 font-semibold text-white tracking-tight">
@@ -225,18 +249,26 @@ function TopCard({ signal, rank }: { signal: SignalData; rank: number }) {
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-slate-950/50 p-3 rounded-xl border border-slate-800/80">
-          <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-            <Crosshair className="w-3.5 h-3.5" />
-            <span className="text-xs uppercase font-medium">Vào Lệnh</span>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1.5 text-slate-400">
+              <Crosshair className="w-3.5 h-3.5" />
+              <span className="text-xs uppercase font-medium">Vào Lệnh</span>
+            </div>
+            <span className="text-[10px] text-slate-500 whitespace-nowrap">{format(signal.entryTime, 'dd/MM HH:mm')}</span>
           </div>
           <div className="font-mono text-sm text-slate-200">${signal.entry}</div>
         </div>
         <div className="bg-slate-950/50 p-3 rounded-xl border border-slate-800/80">
-          <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-            <Target className="w-3.5 h-3.5" />
-            <span className="text-xs uppercase font-medium">Chốt Lời</span>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1.5 text-slate-400">
+              <Target className="w-3.5 h-3.5" />
+              <span className="text-xs uppercase font-medium">Đóng Dự Kiến</span>
+            </div>
           </div>
-          <div className={cn("font-mono text-sm", isLong ? "text-emerald-400" : "text-emerald-400")}>${signal.tp}</div>
+          <div className="flex justify-between items-baseline">
+            <div className={cn("font-mono text-sm", isLong ? "text-emerald-400" : "text-emerald-400")}>${signal.tp}</div>
+            <span className="text-[10px] text-slate-500 whitespace-nowrap">{format(signal.closeTime, 'dd/MM HH:mm')}</span>
+          </div>
         </div>
       </div>
 
@@ -266,6 +298,11 @@ function TableRow({ signal }: { signal: SignalData }) {
           <div className="font-medium text-white flex items-center gap-1.5">
             {signal.symbol.replace('USDT', '')}
             <span className="text-slate-500 text-xs">USDT</span>
+            {signal.hasFakeVolume && (
+              <span className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20" title="Phát hiện Volume ảo">
+                <ShieldAlert className="w-3 h-3" /> Ảo
+              </span>
+            )}
           </div>
           {/* Mobile view signal badge */}
           <div className={cn(
@@ -297,11 +334,17 @@ function TableRow({ signal }: { signal: SignalData }) {
       
       <td className="sm:px-6 sm:py-4 font-mono text-slate-300 flex justify-between sm:table-cell mt-1 sm:mt-0">
         <span className="sm:hidden text-slate-500 text-sm">Entry:</span>
-        ${signal.entry}
+        <div className="flex flex-col sm:items-start items-end">
+          <span>${signal.entry}</span>
+          <span className="text-[10px] text-slate-500 font-sans tracking-tight">{format(signal.entryTime, 'dd/MM HH:mm')}</span>
+        </div>
       </td>
       <td className="sm:px-6 sm:py-4 font-mono text-emerald-400 flex justify-between sm:table-cell mt-1 sm:mt-0">
          <span className="sm:hidden text-slate-500 text-sm">TP:</span>
-        ${signal.tp}
+         <div className="flex flex-col sm:items-start items-end">
+          <span>${signal.tp}</span>
+          <span className="text-[10px] text-slate-500 font-sans tracking-tight">{format(signal.closeTime, 'dd/MM HH:mm')}</span>
+        </div>
       </td>
       <td className="sm:px-6 sm:py-4 font-mono text-rose-400 flex justify-between sm:table-cell mt-1 sm:mt-0">
          <span className="sm:hidden text-slate-500 text-sm">SL:</span>

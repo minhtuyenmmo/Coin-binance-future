@@ -19,12 +19,16 @@ export interface SignalData {
   leverage: number;
   winRate: number;
   timeframe: Timeframe;
+  entryTime: number;
+  closeTime: number;
+  hasFakeVolume: boolean;
 }
 
 export async function fetchTopFutures(timeframe: Timeframe = '1h'): Promise<SignalData[]> {
   try {
     const res = await fetch('https://fapi.binance.com/fapi/v1/ticker/24hr');
     const data = await res.json();
+    const now = Date.now();
     
     // Filter top USDT pairs by volume
     const topPairs = data
@@ -32,14 +36,14 @@ export async function fetchTopFutures(timeframe: Timeframe = '1h'): Promise<Sign
       .sort((a: any, b: any) => parseFloat(b.volume) - parseFloat(a.volume))
       .slice(0, 50);
 
-    return topPairs.map((ticker: BinanceTicker) => generateSignalData(ticker, timeframe));
+    return topPairs.map((ticker: BinanceTicker) => generateSignalData(ticker, timeframe, now));
   } catch (error) {
     console.error('Lỗi khi tải dữ liệu từ Binance:', error);
     return [];
   }
 }
 
-function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe): SignalData {
+function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: number): SignalData {
   const price = parseFloat(ticker.lastPrice);
   const change = parseFloat(ticker.priceChangePercent);
   const volume = parseFloat(ticker.volume);
@@ -102,6 +106,28 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe): Signal
   else if (price < 1) decimals = 4;
   else if (price < 10) decimals = 3;
 
+  // Tính toán thời gian (dựa trên hash và now để ổn định khi reload)
+  let tfDurationMs = 60 * 60 * 1000;
+  switch (timeframe) {
+    case '15m': tfDurationMs = 15 * 60 * 1000; break;
+    case '30m': tfDurationMs = 30 * 60 * 1000; break;
+    case '1h': tfDurationMs = 60 * 60 * 1000; break;
+    case '4h': tfDurationMs = 4 * 60 * 60 * 1000; break;
+    case '1d': tfDurationMs = 24 * 60 * 60 * 1000; break;
+  }
+  
+  // Make entryTime stable across short reloads by tying it loosely to block intervals
+  const pseudoHash = Math.abs(hash) || 1;
+  const entryOffsetMs = (pseudoHash % (tfDurationMs / 4));
+  const entryTime = now - entryOffsetMs;
+  const closeOffsetMs = ((pseudoHash * 13) % tfDurationMs) + (tfDurationMs / 2);
+  const closeTime = entryTime + closeOffsetMs;
+
+  // Giả lập phát hiện volume ảo (Wash Trading) do cá mập bơm thổi
+  // Các coin biến động quá mạnh hoặc có volume lớn bất thường so với giá
+  const volumeAnomaly = ((pseudoHash * 7) % 100) * tfMultiplier;
+  const hasFakeVolume = volumeAnomaly > 65 || (currentVol > 12 && volume < 50000000);
+
   return {
     symbol: ticker.symbol,
     price,
@@ -113,6 +139,9 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe): Signal
     sl: sl.toFixed(decimals),
     leverage,
     winRate: Number(winRate.toFixed(1)),
-    timeframe
+    timeframe,
+    entryTime,
+    closeTime,
+    hasFakeVolume
   };
 }
