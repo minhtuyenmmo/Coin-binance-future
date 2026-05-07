@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, Target, TrendingUp, Zap } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, Target, TrendingUp, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 import { Timeframe, fetchTopFutures, SignalData } from './lib/binance';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -9,6 +9,7 @@ export default function App() {
   const [signals, setSignals] = useState<SignalData[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [winRateSort, setWinRateSort] = useState<'desc' | 'asc'>('desc');
 
   const loadData = async (tf: Timeframe) => {
     setLoading(true);
@@ -27,7 +28,9 @@ export default function App() {
   }, [timeframe]);
 
   const topSignals = [...signals].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
-  const tableSignals = [...signals].sort((a, b) => b.volume - a.volume);
+  const tableSignals = [...signals].sort((a, b) => {
+    return winRateSort === 'desc' ? b.winRate - a.winRate : a.winRate - b.winRate;
+  });
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 selection:bg-emerald-500/30 font-sans pb-20">
@@ -122,6 +125,13 @@ export default function App() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-white tracking-tight">Bảng Tín Hiệu Toàn Thị Trường</h2>
+            <button
+              onClick={() => setWinRateSort(prev => prev === 'desc' ? 'asc' : 'desc')}
+              className="sm:hidden flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-900 border border-slate-800 text-sm text-slate-300 hover:text-white"
+            >
+              <span>Sắp xếp Rate</span>
+              {winRateSort === 'desc' ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </button>
           </div>
           
           <div className="rounded-2xl border border-slate-800 bg-slate-900/40 overflow-hidden backdrop-blur-sm">
@@ -135,7 +145,15 @@ export default function App() {
                     <th className="px-6 py-4 font-medium">Vào lệnh (Entry)</th>
                     <th className="px-6 py-4 font-medium">Chốt lời (TP)</th>
                     <th className="px-6 py-4 font-medium">Cắt lỗ (SL)</th>
-                    <th className="px-6 py-4 font-medium text-right">Tỉ lệ thắng</th>
+                    <th 
+                      className="px-6 py-4 font-medium text-right cursor-pointer hover:bg-slate-800/50 transition-colors select-none"
+                      onClick={() => setWinRateSort(prev => prev === 'desc' ? 'asc' : 'desc')}
+                    >
+                      <div className="flex items-center justify-end gap-1.5">
+                        Tỉ lệ thắng
+                        {winRateSort === 'desc' ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
