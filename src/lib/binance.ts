@@ -3,6 +3,10 @@ export interface BinanceTicker {
   lastPrice: string;
   priceChangePercent: string;
   volume: string;
+  quoteVolume: string;
+  count: number;
+  highPrice: string;
+  lowPrice: string;
 }
 
 export type Timeframe = '15m' | '30m' | '1h' | '4h' | '1d';
@@ -92,10 +96,6 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
   if (currentVol > 25) leverage = 3;
   if (currentVol > 40) leverage = 2;
 
-  // Tính tỉ lệ thắng giả lập (55% - 87%), các coin có volume lớn thường có model mượt hơn
-  const pseudoRandom = Math.abs(Math.sin(hash)) * 100;
-  const winRate = 55 + (pseudoRandom % 32); 
-
   // Format số đẹp (khắc phục lỗi TP/SL bằng nhau với các coin giá quá nhỏ)
   let decimals = 2;
   if (price < 0.00001) decimals = 8;
@@ -123,10 +123,53 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
   const closeOffsetMs = ((pseudoHash * 13) % tfDurationMs) + (tfDurationMs / 2);
   const closeTime = entryTime + closeOffsetMs;
 
-  // Giả lập phát hiện volume ảo (Wash Trading) do cá mập bơm thổi
-  // Các coin biến động quá mạnh hoặc có volume lớn bất thường so với giá
-  const volumeAnomaly = ((pseudoHash * 7) % 100) * tfMultiplier;
-  const hasFakeVolume = volumeAnomaly > 65 || (currentVol > 12 && volume < 50000000);
+  const quoteVolume = parseFloat(ticker.quoteVolume);
+  const count = ticker.count;
+  const high = parseFloat(ticker.highPrice);
+  const low = parseFloat(ticker.lowPrice);
+  
+  // Tính tỷ lệ trung bình mỗi giao dịch (Quote Volume / Count)
+  const avgTradeSize = count > 0 ? quoteVolume / count : 0;
+  
+  // Tính độ biến động giá thực tế (High - Low) / Low
+  const actualVolatility = low > 0 ? (high - low) / low : 0;
+
+  // Phát hiện Volume Ảo (Wash Trading / Spoofing) dựa trên phân tích order và biến động
+  let hasFakeVolume = false;
+  
+  // 1. Biến động giá cực thấp (< 1.5%) nhưng volume cực lớn (> 100M USD) -> Giao dịch tự sang tay
+  if (actualVolatility < 0.015 && quoteVolume > 100000000) {
+    hasFakeVolume = true;
+  }
+  
+  // 2. Trung bình 1 lệnh quá lớn (> 50k USD / lệnh) trên một coin thanh khoản/số lệnh thấp
+  if (count > 0 && count < 30000 && quoteVolume > 20000000 && avgTradeSize > 50000) {
+    hasFakeVolume = true;
+  }
+  
+  // Tính tỉ lệ thắng giả lập. Các coin có volume lớn thường có model mượt hơn
+  const pseudoRandom = Math.abs(Math.sin(hash)) * 100;
+  let winRate = 55 + (pseudoRandom % 30); 
+  
+  if (!hasFakeVolume) {
+     const momentum = actualVolatility > 0 ? Math.abs(change/100) / actualVolatility : 0; 
+     // Nếu change gần bằng actualVolatility -> Nến thân dài (Trend rõ) -> Rate cao hơn
+     if (momentum > 0.7) {
+       winRate += 7;
+     } else if (momentum > 0.5) {
+       winRate += 4;
+     }
+  } else {
+     // Phạt rate nếu có nghi ngờ thao túng
+     winRate -= 15;
+  }
+
+  // Nếu coin có volume thật và số lệnh chia đều, tăng sự tự tin
+  if (!hasFakeVolume && count > 100000 && avgTradeSize < 10000) {
+    winRate += 3;
+  }
+
+  winRate = Math.min(Math.max(winRate, 25), 96); // Clamp max 96% and min 25%
 
   return {
     symbol: ticker.symbol,
