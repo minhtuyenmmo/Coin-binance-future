@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, Target, TrendingUp, Zap } from 'lucide-react';
-import { fetchTopFutures, SignalData } from './lib/binance';
+import { Timeframe, fetchTopFutures, SignalData } from './lib/binance';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
+  const [timeframe, setTimeframe] = useState<Timeframe>('1h');
   const [signals, setSignals] = useState<SignalData[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const loadData = async () => {
+  const loadData = async (tf: Timeframe) => {
     setLoading(true);
-    const data = await fetchTopFutures();
+    const data = await fetchTopFutures(tf);
     // Khuyến khích rate win thực tế hơn trên bảng chính
     setSignals(data);
     setLastUpdated(new Date());
@@ -19,11 +20,11 @@ export default function App() {
   };
 
   useEffect(() => {
-    loadData();
+    loadData(timeframe);
     // Polling every 15 seconds to simulate realtime
-    const interval = setInterval(loadData, 15000);
+    const interval = setInterval(() => loadData(timeframe), 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [timeframe]);
 
   const topSignals = [...signals].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
   const tableSignals = [...signals].sort((a, b) => b.volume - a.volume);
@@ -43,13 +44,28 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-4 text-sm">
+            <div className="hidden sm:flex bg-slate-900 rounded-lg p-1 border border-slate-800">
+              {(['15m', '30m', '1h', '4h', '1d'] as Timeframe[]).map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => setTimeframe(tf)}
+                  className={cn(
+                    "px-3 py-1 rounded-md font-medium transition-colors",
+                    timeframe === tf ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
+                  )}
+                >
+                  {tf.toUpperCase()}
+                </button>
+              ))}
+            </div>
+            
             {lastUpdated && (
-              <span className="text-slate-400 hidden sm:inline-block">
+              <span className="text-slate-400 hidden lg:inline-block">
                 Cập nhật lúc: {lastUpdated.toLocaleTimeString('vi-VN')}
               </span>
             )}
             <button
-              onClick={loadData}
+              onClick={() => loadData(timeframe)}
               disabled={loading}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 transition-colors disabled:opacity-50"
             >
@@ -60,7 +76,25 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
+      {/* Mobile Timeframe Scroll */}
+      <div className="sm:hidden px-4 mt-4 overflow-x-auto pb-2 -mb-2 no-scrollbar">
+        <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800 w-max mx-auto">
+          {(['15m', '30m', '1h', '4h', '1d'] as Timeframe[]).map((tf) => (
+            <button
+              key={tf}
+              onClick={() => setTimeframe(tf)}
+              className={cn(
+                "px-4 py-1.5 rounded-md text-sm font-medium transition-colors",
+                timeframe === tf ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
+              )}
+            >
+              {tf.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 sm:mt-8 space-y-8">
         {/* Intro */}
         <div>
           <h2 className="text-2xl font-semibold text-white tracking-tight">Top 3 Tín Hiệu Nổi Bật</h2>
