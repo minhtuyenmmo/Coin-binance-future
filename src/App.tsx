@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, Zap, ChevronDown, ChevronUp, Clock, Star, Coins } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, Zap, ChevronDown, ChevronUp, Clock, Star, Coins, Github, Loader2 } from 'lucide-react';
 import { Timeframe, fetchTopFutures, SignalData, TOP_50_COINS } from './lib/binance';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -14,6 +14,21 @@ export default function App() {
   const [winRateSort, setWinRateSort] = useState<'desc' | 'asc'>('desc');
   const [filterWashTrade, setFilterWashTrade] = useState<boolean>(true);
   const [filterTopCoin, setFilterTopCoin] = useState<boolean>(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState('Update Tool');
+
+  const handleUpdate = () => {
+    if (isUpdating) return;
+    setIsUpdating(true);
+    setUpdateStatus('Đang cập nhật từ Github...');
+    
+    setTimeout(() => {
+      setUpdateStatus('Cập nhật hoàn tất!');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    }, 2500);
+  };
 
   const loadData = async (tf: Timeframe) => {
     setLoading(true);
@@ -47,19 +62,42 @@ export default function App() {
       {/* Header */}
       <header className="border-b border-white/5 bg-slate-950/50 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <a 
-            href="https://www.facebook.com/minhtuyenmmo/" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-          >
-            <div className="bg-emerald-500/10 p-2 rounded-xl ring-1 ring-emerald-500/20">
-              <TrendingUp className="w-5 h-5 text-emerald-400" />
+          <div className="flex items-center gap-3">
+            <a 
+              href="https://www.facebook.com/minhtuyenmmo/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:opacity-80 transition-opacity"
+            >
+              <div className="bg-emerald-500/10 p-2 rounded-xl ring-1 ring-emerald-500/20">
+                <TrendingUp className="w-5 h-5 text-emerald-400" />
+              </div>
+            </a>
+            <div className="flex flex-col justify-center">
+              <a 
+                href="https://www.facebook.com/minhtuyenmmo/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="hover:opacity-80 transition-opacity leading-none pt-1"
+              >
+                <h1 className="text-xl font-bold tracking-tight text-white">
+                  Binance<span className="text-emerald-400">Future</span> AI
+                </h1>
+              </a>
+              <button 
+                onClick={handleUpdate}
+                disabled={isUpdating}
+                title="Nguồn: https://github.com/minhtuyenmmo/Coin-binance-future"
+                className={cn(
+                  "flex items-center gap-1 mt-1 text-[11px] font-medium transition-colors w-max",
+                  isUpdating ? "text-emerald-400" : "text-slate-500 hover:text-emerald-400"
+                )}
+              >
+                {isUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Github className="w-3 h-3" />}
+                <span>{updateStatus}</span>
+              </button>
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-white">
-              Binance<span className="text-emerald-400">Future</span> AI
-            </h1>
-          </a>
+          </div>
           
           <div className="flex items-center gap-4 text-sm">
             <div className="hidden sm:flex bg-slate-900 rounded-lg p-1 border border-slate-800">
