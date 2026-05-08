@@ -123,7 +123,7 @@ export default function App() {
             <button
               onClick={() => loadData(timeframe)}
               disabled={loading}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 border border-emerald-500 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 font-medium"
             >
               <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
               <span className="hidden sm:inline-block">Làm mới</span>
