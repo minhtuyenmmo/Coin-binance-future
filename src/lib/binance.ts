@@ -28,17 +28,25 @@ export interface SignalData {
   hasFakeVolume: boolean;
 }
 
+export const TOP_50_COINS = [
+  'BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'DOGE', 'TON', 'ADA', 'SHIB', 'AVAX', 
+  'DOT', 'BCH', 'TRX', 'LINK', 'POL', 'NEAR', 'LTC', 'ICP', 'FET', 'KAS', 
+  'UNI', 'APT', 'RENDER', 'PEPE', 'XLM', 'INJ', 'XMR', 'ARB', 'STX', 'OP', 
+  'FIL', 'ATOM', 'MNT', 'CRO', 'IMX', 'OKB', 'SUI', 'VET', 'GRT', 'TAO', 
+  'WIF', 'RUNE', 'THETA', 'MKR', 'ALGO', 'FLOKI', 'BONK', 'AAVE', 'FTM', 'CORE'
+];
+
 export async function fetchTopFutures(timeframe: Timeframe = '1h'): Promise<SignalData[]> {
   try {
     const res = await fetch('https://fapi.binance.com/fapi/v1/ticker/24hr');
     const data = await res.json();
     const now = Date.now();
     
-    // Filter top USDT pairs by volume
+    // Filter top USDT pairs by volume, get 150 to ensure we have enough when filtering
     const topPairs = data
       .filter((t: any) => t.symbol.endsWith('USDT') && !t.symbol.includes('_'))
       .sort((a: any, b: any) => parseFloat(b.volume) - parseFloat(a.volume))
-      .slice(0, 50);
+      .slice(0, 150);
 
     return topPairs.map((ticker: BinanceTicker) => generateSignalData(ticker, timeframe, now));
   } catch (error) {

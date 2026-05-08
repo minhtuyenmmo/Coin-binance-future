@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, Zap, ChevronDown, ChevronUp, Clock } from 'lucide-react';
-import { Timeframe, fetchTopFutures, SignalData } from './lib/binance';
+import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, Zap, ChevronDown, ChevronUp, Clock, Star, Coins } from 'lucide-react';
+import { Timeframe, fetchTopFutures, SignalData, TOP_50_COINS } from './lib/binance';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
@@ -13,6 +13,7 @@ export default function App() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [winRateSort, setWinRateSort] = useState<'desc' | 'asc'>('desc');
   const [filterWashTrade, setFilterWashTrade] = useState<boolean>(true);
+  const [filterTopCoin, setFilterTopCoin] = useState<boolean>(false);
 
   const loadData = async (tf: Timeframe) => {
     setLoading(true);
@@ -30,7 +31,12 @@ export default function App() {
     return () => clearInterval(interval);
   }, [timeframe]);
 
-  const filteredSignals = signals.filter(s => !filterWashTrade || !s.hasFakeVolume);
+  const filteredSignals = signals.filter(s => {
+    if (filterWashTrade && s.hasFakeVolume) return false;
+    if (filterTopCoin && !TOP_50_COINS.includes(s.symbol.replace('USDT', ''))) return false;
+    return true;
+  });
+  
   const topSignals = [...filteredSignals].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
   const tableSignals = [...filteredSignals].sort((a, b) => {
     return winRateSort === 'desc' ? b.winRate - a.winRate : a.winRate - b.winRate;
@@ -41,14 +47,19 @@ export default function App() {
       {/* Header */}
       <header className="border-b border-white/5 bg-slate-950/50 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <a 
+            href="https://www.facebook.com/minhtuyenmmo/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          >
             <div className="bg-emerald-500/10 p-2 rounded-xl ring-1 ring-emerald-500/20">
               <TrendingUp className="w-5 h-5 text-emerald-400" />
             </div>
             <h1 className="text-xl font-bold tracking-tight text-white">
               Binance<span className="text-emerald-400">Future</span> AI
             </h1>
-          </div>
+          </a>
           
           <div className="flex items-center gap-4 text-sm">
             <div className="hidden sm:flex bg-slate-900 rounded-lg p-1 border border-slate-800">
@@ -129,7 +140,20 @@ export default function App() {
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
             <h2 className="text-xl font-semibold text-white tracking-tight">Bảng Tín Hiệu Toàn Thị Trường</h2>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setFilterTopCoin(!filterTopCoin)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-all",
+                  filterTopCoin 
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400" 
+                    : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200"
+                )}
+              >
+                <Coins className={cn("w-4 h-4", filterTopCoin && "text-amber-400")} />
+                <span className="font-medium whitespace-nowrap">Top Coin</span>
+              </button>
+
               <button
                 onClick={() => setFilterWashTrade(!filterWashTrade)}
                 className={cn(
