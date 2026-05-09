@@ -26,6 +26,13 @@ export interface SignalData {
   entryTime: number;
   closeTime: number;
   hasFakeVolume: boolean;
+  indicators: {
+    rsi: number;
+    macd: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+    ichimoku: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+    elliottWave: string;
+    fibonacci: string;
+  };
 }
 
 export const TOP_50_COINS = [
@@ -179,6 +186,24 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
 
   winRate = Math.min(Math.max(winRate, 25), 96); // Clamp max 96% and min 25%
 
+  // Technical Analysis Simulation
+  const rsiSeed = Math.abs(Math.cos(hash)) * 100;
+  let rsi = 30 + (rsiSeed % 40); // 30-70 default
+  if (isLong && winRate > 70) rsi = 15 + (rsiSeed % 25); // 15-40: Oversold -> Bullish
+  if (!isLong && winRate > 70) rsi = 60 + (rsiSeed % 25); // 60-85: Overbought -> Bearish
+
+  const macd = isLong ? (winRate > 60 ? 'BULLISH' : 'NEUTRAL') : (winRate > 60 ? 'BEARISH' : 'NEUTRAL');
+  const ichimoku = isLong ? (winRate > 65 ? 'BULLISH' : 'NEUTRAL') : (winRate > 65 ? 'BEARISH' : 'NEUTRAL');
+  
+  const ewPhases = ['Sóng 1 (Khởi tạo)', 'Sóng 2 (Tích lũy)', 'Sóng 3 (Bùng nổ)', 'Sóng 4 (Điều chỉnh)', 'Sóng 5 (Chạy nước rút)', 'Sóng A (Sụp đổ)', 'Sóng B (Hồi quang phản chiếu)', 'Sóng C (Rũ bỏ)'];
+  const pseudoIndex = Math.floor(pseudoRandom % 100);
+  const elliottWave = isLong 
+    ? ewPhases[pseudoIndex % 5] // 0-4 (Tăng)
+    : ewPhases[(pseudoIndex % 3) + 5]; // 5-7 (Giảm)
+
+  const fibLevels = ['0.236', '0.382', '0.5', '0.618', '0.786', '1.618'];
+  const fibonacci = `Fibo ${fibLevels[pseudoIndex % fibLevels.length]}`;
+
   return {
     symbol: ticker.symbol,
     price,
@@ -193,6 +218,13 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
     timeframe,
     entryTime,
     closeTime,
-    hasFakeVolume
+    hasFakeVolume,
+    indicators: {
+      rsi: Number(rsi.toFixed(1)),
+      macd,
+      ichimoku,
+      elliottWave,
+      fibonacci
+    }
   };
 }

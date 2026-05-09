@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, Zap, ChevronDown, ChevronUp, Clock, Star, Coins, Github, Loader2, Crown } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, Zap, ChevronDown, ChevronUp, Clock, Star, Coins, Github, Loader2, Crown, Activity } from 'lucide-react';
 import { Timeframe, fetchTopFutures, SignalData, TOP_50_COINS } from './lib/binance';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -14,6 +14,7 @@ export default function App() {
   const [winRateSort, setWinRateSort] = useState<'desc' | 'asc'>('desc');
   const [filterWashTrade, setFilterWashTrade] = useState<boolean>(true);
   const [filterTopCoin, setFilterTopCoin] = useState<boolean>(false);
+  const [useTechnicalMode, setUseTechnicalMode] = useState<boolean>(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateStatus, setUpdateStatus] = useState('Update Tool');
 
@@ -52,7 +53,14 @@ export default function App() {
     return true;
   });
   
-  const topSignals = [...filteredSignals].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
+  const topSignals = [...filteredSignals].sort((a, b) => {
+    if (useTechnicalMode) {
+      const scoreA = a.winRate + (a.indicators.macd === 'BULLISH' || a.indicators.macd === 'BEARISH' ? 5 : 0) + (a.indicators.ichimoku !== 'NEUTRAL' ? 5 : 0);
+      const scoreB = b.winRate + (b.indicators.macd === 'BULLISH' || b.indicators.macd === 'BEARISH' ? 5 : 0) + (b.indicators.ichimoku !== 'NEUTRAL' ? 5 : 0);
+      return scoreB - scoreA;
+    }
+    return b.winRate - a.winRate;
+  }).slice(0, 3);
   const tableSignals = [...filteredSignals].sort((a, b) => {
     return winRateSort === 'desc' ? b.winRate - a.winRate : a.winRate - b.winRate;
   });
@@ -273,9 +281,23 @@ export default function App() {
         )}
 
         {/* Intro */}
-        <div>
-          <h2 className="text-2xl font-semibold text-white tracking-tight">Top 3 Tín Hiệu Nổi Bật</h2>
-          <p className="text-slate-400 mt-1">Các đồng coin có xác suất thắng cao nhất theo phân tích dòng tiền và động lượng.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold text-white tracking-tight">Top 3 Tín Hiệu Nổi Bật</h2>
+            <p className="text-slate-400 mt-1">Các đồng coin có xác suất thắng cao nhất theo phân tích dòng tiền và động lượng.</p>
+          </div>
+          <button
+            onClick={() => setUseTechnicalMode(!useTechnicalMode)}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl border font-medium transition-all shadow-sm shrink-0",
+              useTechnicalMode 
+                ? "bg-sky-500/10 border-sky-500/30 text-sky-400 shadow-sky-500/10" 
+                : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200"
+            )}
+          >
+            <Activity className={cn("w-4 h-4", useTechnicalMode && "text-sky-400")} />
+            <span>Trade theo tín hiệu Kĩ thuật</span>
+          </button>
         </div>
 
         {/* Top 3 Cards */}
@@ -289,7 +311,7 @@ export default function App() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <AnimatePresence>
               {topSignals.map((signal, index) => (
-                <TopCard key={signal.symbol} signal={signal} rank={index + 1} />
+                <TopCard key={signal.symbol} signal={signal} rank={index + 1} useTechnicalMode={useTechnicalMode} />
               ))}
             </AnimatePresence>
           </div>
@@ -383,7 +405,7 @@ export default function App() {
   );
 }
 
-function TopCard({ signal, rank }: { signal: SignalData; rank: number }) {
+function TopCard({ signal, rank, useTechnicalMode }: { signal: SignalData; rank: number; useTechnicalMode?: boolean }) {
   const isLong = signal.type === 'LONG';
 
   return (
@@ -454,6 +476,32 @@ function TopCard({ signal, rank }: { signal: SignalData; rank: number }) {
           </div>
         </div>
       </div>
+
+      {useTechnicalMode && signal.indicators && (
+        <div className="mb-4 pt-4 border-t border-slate-800/50">
+          <div className="text-xs font-semibold text-sky-400 mb-2 flex items-center gap-1.5 uppercase tracking-wider">
+            <Activity className="w-3.5 h-3.5" /> Phân Tích Kĩ Thuật
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50">
+              <span className="text-slate-500">RSI 14</span>
+              <span className={cn("font-medium", signal.indicators.rsi < 30 ? "text-emerald-400" : signal.indicators.rsi > 70 ? "text-rose-400" : "text-slate-300")}>{signal.indicators.rsi}</span>
+            </div>
+            <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50">
+              <span className="text-slate-500">MACD</span>
+              <span className={cn("font-medium", signal.indicators.macd === 'BULLISH' ? "text-emerald-400" : signal.indicators.macd === 'BEARISH' ? "text-rose-400" : "text-slate-400")}>{signal.indicators.macd}</span>
+            </div>
+            <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50 col-span-2">
+              <span className="text-slate-500">Sóng Elliott</span>
+              <span className="font-medium text-slate-300">{signal.indicators.elliottWave}</span>
+            </div>
+            <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50 col-span-2">
+              <span className="text-slate-500">Mây Ichimoku</span>
+              <span className={cn("font-medium", signal.indicators.ichimoku === 'BULLISH' ? "text-emerald-400" : signal.indicators.ichimoku === 'BEARISH' ? "text-rose-400" : "text-slate-300")}>{signal.indicators.ichimoku} Mây</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-auto pt-4 border-t border-slate-800 flex justify-between items-center">
         <div className="flex flex-col">
