@@ -69,23 +69,24 @@ export default function App() {
 
     const baseSignal = safeSignals[0];
     
-    // An toàn hóa: Giảm đòn bẩy, thu hẹp TP, nới rộng SL
-    const safeLeverage = Math.max(1, Math.min(2, Math.floor(baseSignal.leverage / 3)));
+    // Lãi mục tiêu (ROE) là 10%
+    // Đặt đòn bẩy = 10, nghĩa là giá chỉ cần chạy 1% là đạt ROE 10%
+    const safeLeverage = 10;
     
     const entryPrice = parseFloat(baseSignal.entry);
-    const originTp = parseFloat(baseSignal.tp);
-    const originSl = parseFloat(baseSignal.sl);
     const isLong = baseSignal.type === 'LONG';
 
-    // Rút ngắn TP để cắn nhanh
+    // Rút ngắn TP để đảm bảo ăn chắc 10%
+    const tpMove = 0.01; // Giá lệch 1%
     const safeTp = isLong 
-      ? entryPrice + (originTp - entryPrice) * 0.2
-      : entryPrice - (entryPrice - originTp) * 0.2;
+      ? entryPrice * (1 + tpMove)
+      : entryPrice * (1 - tpMove);
       
-    // Nới rộng SL để không bị panic hunt
+    // Nới rộng SL để không bị panic hunt - Chấp nhận âm 30% tài khoản nếu sai xu hướng
+    const slMove = 0.03; // Giá lệch 3%
     const safeSl = isLong 
-      ? entryPrice - (entryPrice - originSl) * 2
-      : entryPrice + (originSl - entryPrice) * 2;
+      ? entryPrice * (1 - slMove)
+      : entryPrice * (1 + slMove);
 
     // Giữ nguyên số chữ số thập phân
     const priceStr = baseSignal.price.toString();
@@ -203,7 +204,7 @@ export default function App() {
           >
             <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-amber-900/10 pointer-events-none" />
             <div className="absolute top-0 right-0 p-4 border-b border-l border-amber-500/20 bg-amber-500/10 rounded-bl-3xl">
-              <span className="flex items-center gap-1.5 text-amber-400 font-black tracking-tight"><Crown className="w-4 h-4 fill-amber-400" /> Kèo VIP Bao Thắng 100%</span>
+              <span className="flex items-center gap-1.5 text-amber-400 font-black tracking-tight"><Crown className="w-4 h-4 fill-amber-400" /> Kèo Ăn Chắc 10% Lợi Nhuận</span>
             </div>
             
             <div className="p-6 sm:p-8 backdrop-blur-md relative">
@@ -226,7 +227,7 @@ export default function App() {
                       {sureWinSignal.type}
                     </span>
                     <span className="px-3 py-1 text-sm font-bold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-inner shadow-amber-400/20">
-                      x{sureWinSignal.leverage} VIP
+                      x{sureWinSignal.leverage} Đòn Bẩy
                     </span>
                   </div>
                 </div>
@@ -247,7 +248,7 @@ export default function App() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 text-slate-400">
                       <Target className="w-4 h-4 text-emerald-400" />
-                      <span className="text-sm uppercase font-semibold">Chốt Lời Ngắn (Ăn Chắc)</span>
+                      <span className="text-sm uppercase font-semibold">Chốt Lời (+10% Vốn)</span>
                     </div>
                   </div>
                   <div className="font-mono text-2xl text-emerald-400">
@@ -259,7 +260,7 @@ export default function App() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 text-slate-400">
                       <ShieldAlert className="w-4 h-4 text-rose-400" />
-                      <span className="text-sm uppercase font-semibold">Bảo Vệ Vốn Gồng Lỗ</span>
+                      <span className="text-sm uppercase font-semibold">Cắt Lỗ An Toàn</span>
                     </div>
                   </div>
                   <div className="font-mono text-2xl text-rose-400">
