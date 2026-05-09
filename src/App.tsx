@@ -83,9 +83,19 @@ export default function App() {
   }, [filteredSignals, useTechnicalMode]);
 
   const topSignals = [...adjustedSignals].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
-  const tableSignals = [...adjustedSignals].sort((a, b) => {
-    return winRateSort === 'desc' ? b.winRate - a.winRate : a.winRate - b.winRate;
-  });
+  const tableSignals = (() => {
+    const sorted = [...adjustedSignals].sort((a, b) => {
+      return winRateSort === 'desc' ? b.winRate - a.winRate : a.winRate - b.winRate;
+    });
+    
+    // Đưa BTC lên đầu bảng
+    const btcIndex = sorted.findIndex(s => s.symbol === 'BTCUSDT');
+    if (btcIndex > -1) {
+      const btcSignal = sorted.splice(btcIndex, 1)[0];
+      sorted.unshift(btcSignal);
+    }
+    return sorted;
+  })();
 
   const sureWinSignal = useMemo(() => {
     if (signals.length === 0) return null;
