@@ -53,15 +53,37 @@ export default function App() {
     return true;
   });
   
-  const topSignals = [...filteredSignals].sort((a, b) => {
-    if (useTechnicalMode) {
-      const scoreA = a.winRate + (a.indicators.macd === 'BULLISH' || a.indicators.macd === 'BEARISH' ? 5 : 0) + (a.indicators.ichimoku !== 'NEUTRAL' ? 5 : 0);
-      const scoreB = b.winRate + (b.indicators.macd === 'BULLISH' || b.indicators.macd === 'BEARISH' ? 5 : 0) + (b.indicators.ichimoku !== 'NEUTRAL' ? 5 : 0);
-      return scoreB - scoreA;
-    }
-    return b.winRate - a.winRate;
-  }).slice(0, 3);
-  const tableSignals = [...filteredSignals].sort((a, b) => {
+  const adjustedSignals = useMemo(() => {
+    return filteredSignals.map(signal => {
+      if (!useTechnicalMode) return signal;
+      
+      // Tính toán Tỉ lệ Thắng Thuần Kĩ Thuật, bỏ qua volume
+      let techWinRate = 50; 
+      const rsi = signal.indicators.rsi;
+      
+      if (signal.type === 'LONG') {
+        if (signal.indicators.macd === 'BULLISH') techWinRate += 15;
+        if (signal.indicators.ichimoku === 'BULLISH') techWinRate += 12;
+        if (rsi < 45) techWinRate += (45 - rsi) * 0.8;
+        if (signal.indicators.elliottWave.includes('Sóng 3')) techWinRate += 10;
+        if (signal.indicators.elliottWave.includes('Sóng 5')) techWinRate += 5;
+      } else {
+        if (signal.indicators.macd === 'BEARISH') techWinRate += 15;
+        if (signal.indicators.ichimoku === 'BEARISH') techWinRate += 12;
+        if (rsi > 55) techWinRate += (rsi - 55) * 0.8;
+        if (signal.indicators.elliottWave.includes('Sóng C')) techWinRate += 10;
+        if (signal.indicators.elliottWave.includes('Sóng A')) techWinRate += 5;
+      }
+      
+      return {
+        ...signal,
+        winRate: Math.min(98.5, Number(techWinRate.toFixed(1))) // Giới hạn max 98.5%
+      };
+    });
+  }, [filteredSignals, useTechnicalMode]);
+
+  const topSignals = [...adjustedSignals].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
+  const tableSignals = [...adjustedSignals].sort((a, b) => {
     return winRateSort === 'desc' ? b.winRate - a.winRate : a.winRate - b.winRate;
   });
 
