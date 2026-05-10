@@ -32,6 +32,17 @@ export interface SignalData {
     ichimoku: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
     elliottWave: string;
     fibonacci: string;
+    ict: {
+      marketStructure: 'BOS' | 'ChoCh' | 'Consolidation';
+      liquidity: 'BSL Swept' | 'SSL Swept' | 'Building';
+      fvg: 'Bullish FVG' | 'Bearish FVG' | 'Mitigated';
+      poi: 'Orderblock' | 'Breaker Block' | 'None';
+    };
+    wyckoff: {
+      phase: 'Phase A' | 'Phase B' | 'Phase C' | 'Phase D' | 'Phase E';
+      event: 'PS/PSY' | 'SC/BC' | 'AR' | 'ST' | 'Spring/UTAD' | 'Test' | 'SOS/SOW' | 'LPS/LPSY' | 'BU/Ice';
+      schematic: 'Accumulation' | 'Distribution' | 'Reaccumulation' | 'Redistribution';
+    };
   };
 }
 
@@ -204,6 +215,18 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
   const fibLevels = ['0.236', '0.382', '0.5', '0.618', '0.786', '1.618'];
   const fibonacci = `Fibo ${fibLevels[pseudoIndex % fibLevels.length]}`;
 
+  // ICT Simulation
+  const ictStructures: ('BOS' | 'ChoCh' | 'Consolidation')[] = ['BOS', 'ChoCh', 'Consolidation'];
+  const ictLiquidities: ('BSL Swept' | 'SSL Swept' | 'Building')[] = isLong ? ['SSL Swept', 'Building'] : ['BSL Swept', 'Building'];
+  const ictFvgs: ('Bullish FVG' | 'Bearish FVG' | 'Mitigated')[] = isLong ? ['Bullish FVG', 'Mitigated'] : ['Bearish FVG', 'Mitigated'];
+  const ictPois: ('Orderblock' | 'Breaker Block' | 'None')[] = ['Orderblock', 'Breaker Block', 'None'];
+
+  // Wyckoff Simulation
+  const wyckoffPhases: ('Phase A' | 'Phase B' | 'Phase C' | 'Phase D' | 'Phase E')[] = ['Phase A', 'Phase B', 'Phase C', 'Phase D', 'Phase E'];
+  const wyckoffSchematics: ('Accumulation' | 'Distribution' | 'Reaccumulation' | 'Redistribution')[] = isLong ? ['Accumulation', 'Reaccumulation'] : ['Distribution', 'Redistribution'];
+  const wyckoffEventsAcc: ('PS/PSY' | 'SC/BC' | 'AR' | 'ST' | 'Spring/UTAD' | 'Test' | 'SOS/SOW' | 'LPS/LPSY' | 'BU/Ice')[] = ['PS/PSY', 'SC/BC', 'AR', 'ST', 'Spring/UTAD', 'Test', 'SOS/SOW', 'LPS/LPSY', 'BU/Ice'];
+  const wyckoffEventsDist: ('PS/PSY' | 'SC/BC' | 'AR' | 'ST' | 'Spring/UTAD' | 'Test' | 'SOS/SOW' | 'LPS/LPSY' | 'BU/Ice')[] = ['PS/PSY', 'SC/BC', 'AR', 'ST', 'Spring/UTAD', 'Test', 'SOS/SOW', 'LPS/LPSY', 'BU/Ice'];
+
   return {
     symbol: ticker.symbol,
     price,
@@ -224,7 +247,18 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
       macd,
       ichimoku,
       elliottWave,
-      fibonacci
+      fibonacci,
+      ict: {
+        marketStructure: ictStructures[pseudoIndex % ictStructures.length],
+        liquidity: ictLiquidities[pseudoIndex % ictLiquidities.length],
+        fvg: ictFvgs[pseudoIndex % ictFvgs.length],
+        poi: ictPois[pseudoIndex % ictPois.length],
+      },
+      wyckoff: {
+        phase: wyckoffPhases[pseudoIndex % wyckoffPhases.length],
+        schematic: wyckoffSchematics[pseudoIndex % wyckoffSchematics.length],
+        event: isLong ? wyckoffEventsAcc[pseudoIndex % wyckoffEventsAcc.length] : wyckoffEventsDist[pseudoIndex % wyckoffEventsDist.length]
+      }
     }
   };
 }
