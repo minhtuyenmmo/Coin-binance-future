@@ -487,7 +487,7 @@ function TopCard({ signal, rank, tradeMode }: { signal: SignalData; rank: number
             </div>
             <span className="text-[10px] text-slate-500 whitespace-nowrap">{format(signal.entryTime, 'dd/MM HH:mm')}</span>
           </div>
-          <div className="font-mono text-sm text-slate-200">${signal.entry}</div>
+          <div className="font-mono text-sm text-slate-200">${tradeMode !== 'VOLUME' && signal.indicators ? signal.indicators.optimalEntry : signal.entry}</div>
         </div>
         <div className="bg-slate-950/50 p-3 rounded-xl border border-slate-800/80">
           <div className="flex items-center justify-between mb-1">
@@ -574,7 +574,7 @@ function TableRow({ signal, tradeMode }: { signal: SignalData; tradeMode: TradeM
       <td className="sm:px-6 sm:py-4 font-mono text-slate-300 flex justify-between sm:table-cell mt-1 sm:mt-0">
         <span className="sm:hidden text-slate-500 text-sm">Entry:</span>
         <div className="flex flex-col sm:items-start items-end">
-          <span>${signal.entry}</span>
+          <span>${tradeMode !== 'VOLUME' && signal.indicators ? signal.indicators.optimalEntry : signal.entry}</span>
           <span className="text-[10px] text-slate-500 font-sans tracking-tight">{format(signal.entryTime, 'dd/MM HH:mm')}</span>
         </div>
       </td>
@@ -619,6 +619,16 @@ function SignalIndicatorsDetail({ signal, tradeMode }: { signal: SignalData; tra
             {tradeMode === 'ICT' && <><Target className="w-3.5 h-3.5 text-purple-400" /> <span className="text-purple-400">Smc / ICT Analysis</span></>}
             {tradeMode === 'WYCKOFF' && <><Compass className="w-3.5 h-3.5 text-amber-400" /> <span className="text-amber-400">Wyckoff Logic</span></>}
             {tradeMode === 'COMBINED' && <><Layers className="w-3.5 h-3.5 text-emerald-400" /> <span className="text-emerald-400">Đa Kĩ Thuật</span></>}
+          </div>
+
+          <div className="mb-3 bg-slate-900/40 p-3 rounded-lg border border-slate-800/80">
+            <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1 flex items-center gap-1.5">
+              <Crosshair className="w-3 h-3 text-emerald-400" /> Entry Tối Ưu
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span className="font-mono text-emerald-400 text-lg font-medium">${signal.indicators.optimalEntry}</span>
+              <span className="text-xs text-slate-400 text-right">{signal.indicators.entryStrategy}</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-xs">

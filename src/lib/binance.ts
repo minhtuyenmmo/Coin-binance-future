@@ -38,6 +38,8 @@ export interface SignalData {
     ichimoku: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
     elliottWave: string;
     fibonacci: string;
+    optimalEntry: string;
+    entryStrategy: string;
     ict: {
       marketStructure: 'BOS' | 'ChoCh' | 'Consolidation';
       liquidity: 'BSL Swept' | 'SSL Swept' | 'Building';
@@ -221,6 +223,30 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
   const fibLevels = ['0.236', '0.382', '0.5', '0.618', '0.786', '1.618'];
   const fibonacci = `Fibo ${fibLevels[pseudoIndex % fibLevels.length]}`;
 
+  const entryReasonsLong = [
+    'Pullback về Demand Zone (PA) + Lấp FVG (SMC) khung 15m',
+    'Test lại Hỗ trợ cứng + Nến Pin Bar (PA) + Phân kỳ RSI',
+    'Hồi quy Fibo 0.618 + Chạm đường EMA 50 khung 1H',
+    'Chạm dải dưới Bollinger Bands + Order Block (SMC) khung 5m',
+    'BOS -> Chờ test Breaker Block + Hợp lưu đa khung thời gian'
+  ];
+  const entryReasonsShort = [
+    'Pullback về Supply Zone (PA) + Lấp FVG (SMC) khung 15m',
+    'Test lại Kháng cự cứng + Nến Engulfing (PA) + Phân kỳ RSI',
+    'Hồi quy Fibo 0.618 + Chạm đường EMA 50 khung 1H',
+    'Chạm dải trên Bollinger Bands + Order Block (SMC) khung 5m',
+    'BOS giảm -> Chờ test Breaker Block + Hợp lưu đa khung thời gian'
+  ];
+  const entryStrategy = isLong 
+    ? entryReasonsLong[pseudoIndex % entryReasonsLong.length]
+    : entryReasonsShort[pseudoIndex % entryReasonsShort.length];
+
+  const entryPriceNum = parseFloat(priceStr);
+  const optimalEntryNum = isLong 
+    ? entryPriceNum * (1 - (0.002 + (pseudoIndex % 15) * 0.001))
+    : entryPriceNum * (1 + (0.002 + (pseudoIndex % 15) * 0.001));
+  const optimalEntry = optimalEntryNum.toFixed(priceStr.split('.')[1]?.length || 2);
+
   // ICT Simulation
   const ictStructures: ('BOS' | 'ChoCh' | 'Consolidation')[] = ['BOS', 'ChoCh', 'Consolidation'];
   const ictLiquidities: ('BSL Swept' | 'SSL Swept' | 'Building')[] = isLong ? ['SSL Swept', 'Building'] : ['BSL Swept', 'Building'];
@@ -254,6 +280,8 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
       ichimoku,
       elliottWave,
       fibonacci,
+      optimalEntry,
+      entryStrategy,
       ict: {
         marketStructure: ictStructures[pseudoIndex % ictStructures.length],
         liquidity: ictLiquidities[pseudoIndex % ictLiquidities.length],
