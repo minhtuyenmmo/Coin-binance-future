@@ -1,10 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
-import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, Zap, ChevronDown, ChevronUp, Clock, Star, Coins, Github, Loader2, Crown, Activity } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, Zap, ChevronDown, ChevronUp, Clock, Star, Coins, Github, Loader2, Crown, Activity, Compass, Layers } from 'lucide-react';
 import { Timeframe, fetchTopFutures, SignalData, TOP_50_COINS } from './lib/binance';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+
+type TradeMode = 'VOLUME' | 'TECHNICAL' | 'ICT' | 'WYCKOFF' | 'COMBINED';
 
 export default function App() {
   const [timeframe, setTimeframe] = useState<Timeframe>('1h');
@@ -14,7 +16,7 @@ export default function App() {
   const [winRateSort, setWinRateSort] = useState<'desc' | 'asc'>('desc');
   const [filterWashTrade, setFilterWashTrade] = useState<boolean>(true);
   const [filterTopCoin, setFilterTopCoin] = useState<boolean>(false);
-  const [useTechnicalMode, setUseTechnicalMode] = useState<boolean>(false);
+  const [tradeMode, setTradeMode] = useState<TradeMode>('VOLUME');
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateStatus, setUpdateStatus] = useState('Update Tool');
 
@@ -55,24 +57,91 @@ export default function App() {
   
   const adjustedSignals = useMemo(() => {
     return filteredSignals.map(signal => {
-      if (!useTechnicalMode) return signal;
+      if (tradeMode === 'VOLUME') return signal;
       
-      // Tính toán Tỉ lệ Thắng Thuần Kĩ Thuật, bỏ qua volume
       let techWinRate = 50; 
       const rsi = signal.indicators.rsi;
+      const { macd, ichimoku, elliottWave, ict, wyckoff } = signal.indicators;
+      const isLong = signal.type === 'LONG';
       
-      if (signal.type === 'LONG') {
-        if (signal.indicators.macd === 'BULLISH') techWinRate += 15;
-        if (signal.indicators.ichimoku === 'BULLISH') techWinRate += 12;
-        if (rsi < 45) techWinRate += (45 - rsi) * 0.8;
-        if (signal.indicators.elliottWave.includes('Sóng 3')) techWinRate += 10;
-        if (signal.indicators.elliottWave.includes('Sóng 5')) techWinRate += 5;
-      } else {
-        if (signal.indicators.macd === 'BEARISH') techWinRate += 15;
-        if (signal.indicators.ichimoku === 'BEARISH') techWinRate += 12;
-        if (rsi > 55) techWinRate += (rsi - 55) * 0.8;
-        if (signal.indicators.elliottWave.includes('Sóng C')) techWinRate += 10;
-        if (signal.indicators.elliottWave.includes('Sóng A')) techWinRate += 5;
+      if (tradeMode === 'TECHNICAL') {
+        if (isLong) {
+          if (macd === 'BULLISH') techWinRate += 15;
+          if (ichimoku === 'BULLISH') techWinRate += 12;
+          if (rsi < 45) techWinRate += (45 - rsi) * 0.8;
+          if (elliottWave.includes('Sóng 3')) techWinRate += 10;
+          if (elliottWave.includes('Sóng 5')) techWinRate += 5;
+        } else {
+          if (macd === 'BEARISH') techWinRate += 15;
+          if (ichimoku === 'BEARISH') techWinRate += 12;
+          if (rsi > 55) techWinRate += (rsi - 55) * 0.8;
+          if (elliottWave.includes('Sóng C')) techWinRate += 10;
+          if (elliottWave.includes('Sóng A')) techWinRate += 5;
+        }
+      } else if (tradeMode === 'ICT') {
+        if (ict.marketStructure === 'BOS') techWinRate += 15;
+        if (ict.marketStructure === 'ChoCh') techWinRate += 10;
+        if (isLong && ict.liquidity === 'SSL Swept') techWinRate += 10;
+        if (!isLong && ict.liquidity === 'BSL Swept') techWinRate += 10;
+        if (isLong && ict.fvg === 'Bullish FVG') techWinRate += 10;
+        if (!isLong && ict.fvg === 'Bearish FVG') techWinRate += 10;
+        if (ict.poi === 'Orderblock') techWinRate += 10;
+        if (ict.poi === 'Breaker Block') techWinRate += 5;
+      } else if (tradeMode === 'WYCKOFF') {
+        if (wyckoff.phase === 'Phase A') techWinRate += 5;
+        if (wyckoff.phase === 'Phase B') techWinRate += 5;
+        if (wyckoff.phase === 'Phase C') techWinRate += 20;
+        if (wyckoff.phase === 'Phase D') techWinRate += 15;
+        if (wyckoff.phase === 'Phase E') techWinRate += 10;
+        
+        if (wyckoff.schematic === 'Accumulation' && isLong) techWinRate += 15;
+        if (wyckoff.schematic === 'Distribution' && !isLong) techWinRate += 15;
+        if (wyckoff.event === 'Spring/UTAD') techWinRate += 10;
+      } else if (tradeMode === 'COMBINED') {
+        // Average of three
+        let techBase = 50;
+        let ictBase = 50;
+        let wyckoffBase = 50;
+        
+        if (isLong) {
+          if (macd === 'BULLISH') techBase += 15;
+          if (ichimoku === 'BULLISH') techBase += 12;
+          if (rsi < 45) techBase += (45 - rsi) * 0.8;
+          if (elliottWave.includes('Sóng 3')) techBase += 10;
+        } else {
+          if (macd === 'BEARISH') techBase += 15;
+          if (ichimoku === 'BEARISH') techBase += 12;
+          if (rsi > 55) techBase += (rsi - 55) * 0.8;
+          if (elliottWave.includes('Sóng C')) techBase += 10;
+        }
+
+        if (ict.marketStructure === 'BOS') ictBase += 15;
+        if (isLong && ict.liquidity === 'SSL Swept') ictBase += 10;
+        if (!isLong && ict.liquidity === 'BSL Swept') ictBase += 10;
+        if (isLong && ict.fvg === 'Bullish FVG') ictBase += 10;
+        if (!isLong && ict.fvg === 'Bearish FVG') ictBase += 5;
+
+        if (wyckoff.phase === 'Phase C' || wyckoff.phase === 'Phase D') wyckoffBase += 20;
+        if (isLong && wyckoff.schematic === 'Accumulation') wyckoffBase += 15;
+        if (!isLong && wyckoff.schematic === 'Distribution') wyckoffBase += 15;
+        if (wyckoff.event === 'Spring/UTAD') wyckoffBase += 10;
+        
+        const finalTechBase = Math.min(99, techBase);
+        const finalIctBase = Math.min(99, ictBase);
+        const finalWyckoffBase = Math.min(99, wyckoffBase);
+
+        techWinRate = (finalTechBase + finalIctBase + finalWyckoffBase) / 3 + 10; // +10 combined synergy bonus
+        
+        return {
+          ...signal,
+          winRate: Math.min(98.5, Number(techWinRate.toFixed(1))),
+          subWinRates: {
+            volume: signal.winRate,
+            technical: finalTechBase,
+            ict: finalIctBase,
+            wyckoff: finalWyckoffBase
+          }
+        };
       }
       
       return {
@@ -80,7 +149,7 @@ export default function App() {
         winRate: Math.min(98.5, Number(techWinRate.toFixed(1))) // Giới hạn max 98.5%
       };
     });
-  }, [filteredSignals, useTechnicalMode]);
+  }, [filteredSignals, tradeMode]);
 
   const topSignals = [...adjustedSignals].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
   const tableSignals = (() => {
@@ -97,50 +166,7 @@ export default function App() {
     return sorted;
   })();
 
-  const sureWinSignal = useMemo(() => {
-    if (signals.length === 0) return null;
-    
-    // Tìm coin có top volume thật, biến động thấp vừa phải
-    const safeSignals = signals
-      .filter(s => !s.hasFakeVolume && TOP_50_COINS.includes(s.symbol.replace('USDT', '')))
-      .sort((a, b) => b.winRate - a.winRate);
 
-    if (safeSignals.length === 0) return null;
-
-    const baseSignal = safeSignals[0];
-    
-    // Lãi mục tiêu (ROE) là 10%
-    // Đặt đòn bẩy = 10, nghĩa là giá chỉ cần chạy 1% là đạt ROE 10%
-    const safeLeverage = 10;
-    
-    const entryPrice = parseFloat(baseSignal.entry);
-    const isLong = baseSignal.type === 'LONG';
-
-    // Rút ngắn TP để đảm bảo ăn chắc 10%
-    const tpMove = 0.01; // Giá lệch 1%
-    const safeTp = isLong 
-      ? entryPrice * (1 + tpMove)
-      : entryPrice * (1 - tpMove);
-      
-    // Nới rộng SL để không bị panic hunt - Chấp nhận âm 30% tài khoản nếu sai xu hướng
-    const slMove = 0.03; // Giá lệch 3%
-    const safeSl = isLong 
-      ? entryPrice * (1 - slMove)
-      : entryPrice * (1 + slMove);
-
-    // Giữ nguyên số chữ số thập phân
-    const priceStr = baseSignal.price.toString();
-    const decimals = priceStr.includes('.') ? priceStr.split('.')[1].length : 2;
-
-    return {
-      ...baseSignal,
-      leverage: safeLeverage,
-      tp: safeTp.toFixed(decimals),
-      sl: safeSl.toFixed(decimals),
-      winRate: 99.9, // Gần như tuyệt đối, để 99.9 cho thực tế hơn 100
-      type: baseSignal.type,
-    };
-  }, [signals]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 selection:bg-emerald-500/30 font-sans pb-20">
@@ -236,100 +262,68 @@ export default function App() {
       </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 sm:mt-8 space-y-8">
-        {sureWinSignal && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-3xl border border-amber-500/30 overflow-hidden relative shadow-lg shadow-amber-500/10 mb-8"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-amber-900/10 pointer-events-none" />
-            <div className="absolute top-0 right-0 p-4 border-b border-l border-amber-500/20 bg-amber-500/10 rounded-bl-3xl">
-              <span className="flex items-center gap-1.5 text-amber-400 font-black tracking-tight"><Crown className="w-4 h-4 fill-amber-400" /> Kèo Ăn Chắc 10% Lợi Nhuận</span>
-            </div>
-            
-            <div className="p-6 sm:p-8 backdrop-blur-md relative">
-              <div className="flex items-start justify-between mb-6">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-bold text-3xl text-white flex items-center gap-2">
-                      {sureWinSignal.symbol.replace('USDT', '')}
-                      <span className="text-amber-500/50 text-xl font-normal">/USDT</span>
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "px-3 py-1 text-sm font-bold rounded-lg border flex items-center gap-1.5",
-                      sureWinSignal.type === 'LONG' 
-                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
-                        : "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                    )}>
-                      {sureWinSignal.type === 'LONG' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                      {sureWinSignal.type}
-                    </span>
-                    <span className="px-3 py-1 text-sm font-bold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-inner shadow-amber-400/20">
-                      x{sureWinSignal.leverage} Đòn Bẩy
-                    </span>
-                  </div>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <Crosshair className="w-4 h-4 text-sky-400" />
-                      <span className="text-sm uppercase font-semibold">Vào Lệnh An Toàn</span>
-                    </div>
-                  </div>
-                  <div className="font-mono text-2xl text-white">${sureWinSignal.entry}</div>
-                </div>
-
-                <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <Target className="w-4 h-4 text-emerald-400" />
-                      <span className="text-sm uppercase font-semibold">Chốt Lời (+10% Vốn)</span>
-                    </div>
-                  </div>
-                  <div className="font-mono text-2xl text-emerald-400">
-                    ${sureWinSignal.tp}
-                  </div>
-                </div>
-
-                <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <ShieldAlert className="w-4 h-4 text-rose-400" />
-                      <span className="text-sm uppercase font-semibold">Cắt Lỗ An Toàn</span>
-                    </div>
-                  </div>
-                  <div className="font-mono text-2xl text-rose-400">
-                    ${sureWinSignal.sl}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
 
         {/* Intro */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold text-white tracking-tight">Top 3 Tín Hiệu Nổi Bật</h2>
             <p className="text-slate-400 mt-1">Các đồng coin có xác suất thắng cao nhất theo phân tích dòng tiền và động lượng.</p>
           </div>
-          <button
-            onClick={() => setUseTechnicalMode(!useTechnicalMode)}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-xl border font-medium transition-all shadow-sm shrink-0",
-              useTechnicalMode 
-                ? "bg-sky-500/10 border-sky-500/30 text-sky-400 shadow-sky-500/10" 
-                : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200"
-            )}
-          >
-            <Activity className={cn("w-4 h-4", useTechnicalMode && "text-sky-400")} />
-            <span>Trade theo tín hiệu Kĩ thuật</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setTradeMode(tradeMode === 'TECHNICAL' ? 'VOLUME' : 'TECHNICAL')}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all shadow-sm shrink-0",
+                tradeMode === 'TECHNICAL'
+                  ? "bg-sky-500/10 border-sky-500/30 text-sky-400 shadow-sky-500/10" 
+                  : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200"
+              )}
+            >
+              <Activity className={cn("w-4 h-4", tradeMode === 'TECHNICAL' && "text-sky-400")} />
+              <span className="hidden sm:inline">Tín hiệu Kĩ thuật</span>
+              <span className="sm:hidden">Kĩ thuật</span>
+            </button>
+            <button
+              onClick={() => setTradeMode(tradeMode === 'ICT' ? 'VOLUME' : 'ICT')}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all shadow-sm shrink-0",
+                tradeMode === 'ICT'
+                  ? "bg-purple-500/10 border-purple-500/30 text-purple-400 shadow-purple-500/10" 
+                  : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200"
+              )}
+            >
+              <Target className={cn("w-4 h-4", tradeMode === 'ICT' && "text-purple-400")} />
+              <span className="hidden sm:inline">Trade theo ICT</span>
+              <span className="sm:hidden">ICT</span>
+            </button>
+            <button
+              onClick={() => setTradeMode(tradeMode === 'WYCKOFF' ? 'VOLUME' : 'WYCKOFF')}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all shadow-sm shrink-0",
+                tradeMode === 'WYCKOFF'
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-amber-500/10" 
+                  : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200"
+              )}
+            >
+              <Compass className={cn("w-4 h-4", tradeMode === 'WYCKOFF' && "text-amber-400")} />
+              <span className="hidden sm:inline">Trade theo Wyckoff</span>
+              <span className="sm:hidden">Wyckoff</span>
+            </button>
+            <button
+              onClick={() => setTradeMode(tradeMode === 'COMBINED' ? 'VOLUME' : 'COMBINED')}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all shadow-sm shrink-0",
+                tradeMode === 'COMBINED'
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-emerald-500/10" 
+                  : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200"
+              )}
+            >
+              <Layers className={cn("w-4 h-4", tradeMode === 'COMBINED' && "text-emerald-400")} />
+              <span className="hidden sm:inline">Đa kĩ thuật</span>
+              <span className="sm:hidden">Đa KT</span>
+            </button>
+          </div>
         </div>
 
         {/* Top 3 Cards */}
@@ -343,7 +337,7 @@ export default function App() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <AnimatePresence>
               {topSignals.map((signal, index) => (
-                <TopCard key={signal.symbol} signal={signal} rank={index + 1} useTechnicalMode={useTechnicalMode} />
+                <TopCard key={signal.symbol} signal={signal} rank={index + 1} tradeMode={tradeMode} />
               ))}
             </AnimatePresence>
           </div>
@@ -419,7 +413,7 @@ export default function App() {
                     </tr>
                   ) : (
                     tableSignals.map((signal) => (
-                      <TableRow key={signal.symbol} signal={signal} />
+                      <TableRow key={signal.symbol} signal={signal} tradeMode={tradeMode} />
                     ))
                   )}
                 </tbody>
@@ -437,7 +431,7 @@ export default function App() {
   );
 }
 
-function TopCard({ signal, rank, useTechnicalMode }: { signal: SignalData; rank: number; useTechnicalMode?: boolean }) {
+function TopCard({ signal, rank, tradeMode }: { signal: SignalData; rank: number; tradeMode: TradeMode }) {
   const isLong = signal.type === 'LONG';
 
   return (
@@ -509,31 +503,7 @@ function TopCard({ signal, rank, useTechnicalMode }: { signal: SignalData; rank:
         </div>
       </div>
 
-      {useTechnicalMode && signal.indicators && (
-        <div className="mb-4 pt-4 border-t border-slate-800/50">
-          <div className="text-xs font-semibold text-sky-400 mb-2 flex items-center gap-1.5 uppercase tracking-wider">
-            <Activity className="w-3.5 h-3.5" /> Phân Tích Kĩ Thuật
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50">
-              <span className="text-slate-500">RSI 14</span>
-              <span className={cn("font-medium", signal.indicators.rsi < 30 ? "text-emerald-400" : signal.indicators.rsi > 70 ? "text-rose-400" : "text-slate-300")}>{signal.indicators.rsi}</span>
-            </div>
-            <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50">
-              <span className="text-slate-500">MACD</span>
-              <span className={cn("font-medium", signal.indicators.macd === 'BULLISH' ? "text-emerald-400" : signal.indicators.macd === 'BEARISH' ? "text-rose-400" : "text-slate-400")}>{signal.indicators.macd}</span>
-            </div>
-            <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50 col-span-2">
-              <span className="text-slate-500">Sóng Elliott</span>
-              <span className="font-medium text-slate-300">{signal.indicators.elliottWave}</span>
-            </div>
-            <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50 col-span-2">
-              <span className="text-slate-500">Mây Ichimoku</span>
-              <span className={cn("font-medium", signal.indicators.ichimoku === 'BULLISH' ? "text-emerald-400" : signal.indicators.ichimoku === 'BEARISH' ? "text-rose-400" : "text-slate-300")}>{signal.indicators.ichimoku} Mây</span>
-            </div>
-          </div>
-        </div>
-      )}
+      <SignalIndicatorsDetail signal={signal} tradeMode={tradeMode} />
 
       <div className="mt-auto pt-4 border-t border-slate-800 flex justify-between items-center">
         <div className="flex flex-col">
@@ -551,11 +521,17 @@ function TopCard({ signal, rank, useTechnicalMode }: { signal: SignalData; rank:
   );
 }
 
-function TableRow({ signal }: { signal: SignalData }) {
+function TableRow({ signal, tradeMode }: { signal: SignalData; tradeMode: TradeMode }) {
   const isLong = signal.type === 'LONG';
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isInteractive = tradeMode !== 'VOLUME';
   
   return (
-    <tr className="hover:bg-slate-800/30 transition-colors flex flex-col sm:table-row px-4 py-4 sm:p-0 border-b border-slate-800/50 sm:border-b-0">
+    <>
+      <tr 
+        onClick={() => isInteractive && setIsExpanded(!isExpanded)}
+        className={cn("hover:bg-slate-800/30 transition-colors flex flex-col sm:table-row px-4 py-4 sm:p-0 border-b border-slate-800/50 sm:border-b-0", isInteractive && "cursor-pointer hover:bg-slate-800/60")}
+      >
       <td className="sm:px-6 sm:py-4">
         <div className="flex items-center justify-between sm:justify-start">
           <div className="font-medium text-white flex items-center gap-1.5">
@@ -622,5 +598,120 @@ function TableRow({ signal }: { signal: SignalData }) {
         </div>
       </td>
     </tr>
+    {isExpanded && isInteractive && (
+      <tr className="flex flex-col sm:table-row bg-slate-900/50 sm:border-none">
+        <td colSpan={7} className="p-4 sm:px-6 border-b border-slate-800/50">
+          <SignalIndicatorsDetail signal={signal} tradeMode={tradeMode} />
+        </td>
+      </tr>
+    )}
+    </>
+  );
+}
+
+function SignalIndicatorsDetail({ signal, tradeMode }: { signal: SignalData; tradeMode: TradeMode }) {
+  if (tradeMode === 'VOLUME' || !signal.indicators) return null;
+  
+  return (
+        <div className="mb-4 pt-4 border-t border-slate-800/50">
+          <div className="text-xs font-semibold text-sky-400 mb-2 flex items-center gap-1.5 uppercase tracking-wider">
+            {tradeMode === 'TECHNICAL' && <><Activity className="w-3.5 h-3.5" /> Phân Tích Kĩ Thuật</>}
+            {tradeMode === 'ICT' && <><Target className="w-3.5 h-3.5 text-purple-400" /> <span className="text-purple-400">Smc / ICT Analysis</span></>}
+            {tradeMode === 'WYCKOFF' && <><Compass className="w-3.5 h-3.5 text-amber-400" /> <span className="text-amber-400">Wyckoff Logic</span></>}
+            {tradeMode === 'COMBINED' && <><Layers className="w-3.5 h-3.5 text-emerald-400" /> <span className="text-emerald-400">Đa Kĩ Thuật</span></>}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            {/* TECHNICAL */}
+            {(tradeMode === 'TECHNICAL' || tradeMode === 'COMBINED') && (
+              <>
+                <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50">
+                  <span className="text-slate-500">RSI 14</span>
+                  <span className={cn("font-medium", signal.indicators.rsi < 30 ? "text-emerald-400" : signal.indicators.rsi > 70 ? "text-rose-400" : "text-slate-300")}>{signal.indicators.rsi}</span>
+                </div>
+                <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50">
+                  <span className="text-slate-500">MACD</span>
+                  <span className={cn("font-medium", signal.indicators.macd === 'BULLISH' ? "text-emerald-400" : signal.indicators.macd === 'BEARISH' ? "text-rose-400" : "text-slate-400")}>{signal.indicators.macd}</span>
+                </div>
+              </>
+            )}
+
+            {tradeMode === 'COMBINED' && signal.subWinRates && (
+              <div className="col-span-2 grid grid-cols-2 gap-2 mb-2">
+                <div className="flex flex-col bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-2">
+                  <span className="text-[10px] text-emerald-500/70 font-semibold uppercase">Volume Rate</span>
+                  <span className="text-sm font-bold text-emerald-400">{signal.subWinRates.volume}%</span>
+                </div>
+                <div className="flex flex-col bg-sky-500/5 border border-sky-500/20 rounded-lg p-2">
+                  <span className="text-[10px] text-sky-500/70 font-semibold uppercase">Technical Rate</span>
+                  <span className="text-sm font-bold text-sky-400">{signal.subWinRates.technical}%</span>
+                </div>
+                <div className="flex flex-col bg-purple-500/5 border border-purple-500/20 rounded-lg p-2">
+                  <span className="text-[10px] text-purple-500/70 font-semibold uppercase">ICT Rate</span>
+                  <span className="text-sm font-bold text-purple-400">{signal.subWinRates.ict}%</span>
+                </div>
+                <div className="flex flex-col bg-amber-500/5 border border-amber-500/20 rounded-lg p-2">
+                  <span className="text-[10px] text-amber-500/70 font-semibold uppercase">Wyckoff Rate</span>
+                  <span className="text-sm font-bold text-amber-400">{signal.subWinRates.wyckoff}%</span>
+                </div>
+              </div>
+            )}
+
+            {tradeMode === 'TECHNICAL' && (
+              <>
+                <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50 col-span-2">
+                  <span className="text-slate-500">Sóng Elliott</span>
+                  <span className="font-medium text-slate-300">{signal.indicators.elliottWave}</span>
+                </div>
+                <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50 col-span-2">
+                  <span className="text-slate-500">Mây Ichimoku</span>
+                  <span className={cn("font-medium", signal.indicators.ichimoku === 'BULLISH' ? "text-emerald-400" : signal.indicators.ichimoku === 'BEARISH' ? "text-rose-400" : "text-slate-300")}>{signal.indicators.ichimoku} Mây</span>
+                </div>
+              </>
+            )}
+
+            {/* ICT */}
+            {(tradeMode === 'ICT' || tradeMode === 'COMBINED') && (
+              <>
+                <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50">
+                  <span className="text-slate-500">Cấu trúc</span>
+                  <span className="font-medium text-purple-300">{signal.indicators.ict.marketStructure}</span>
+                </div>
+                <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50">
+                  <span className="text-slate-500">Liquidity</span>
+                  <span className="font-medium text-purple-300">{signal.indicators.ict.liquidity}</span>
+                </div>
+              </>
+            )}
+
+            {tradeMode === 'ICT' && (
+              <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50 col-span-2">
+                <span className="text-slate-500">Vùng cản (POI)</span>
+                <span className="font-medium text-purple-300">{signal.indicators.ict.fvg} + {signal.indicators.ict.poi}</span>
+              </div>
+            )}
+
+            {/* WYCKOFF */}
+            {(tradeMode === 'WYCKOFF' || tradeMode === 'COMBINED') && (
+              <>
+                <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50">
+                  <span className="text-slate-500">Mô hình</span>
+                  <span className="font-medium text-amber-300">{signal.indicators.wyckoff.schematic}</span>
+                </div>
+                <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50">
+                  <span className="text-slate-500">Pha</span>
+                  <span className="font-medium text-amber-300">{signal.indicators.wyckoff.phase}</span>
+                </div>
+              </>
+            )}
+            
+            {tradeMode === 'WYCKOFF' && (
+              <div className="flex justify-between items-center bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-800/50 col-span-2">
+                <span className="text-slate-500">Sự kiện chính</span>
+                <span className="font-medium text-amber-300">{signal.indicators.wyckoff.event}</span>
+              </div>
+            )}
+          </div>
+        </div>
   );
 }
