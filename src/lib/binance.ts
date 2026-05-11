@@ -241,7 +241,8 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
     ? entryReasonsLong[pseudoIndex % entryReasonsLong.length]
     : entryReasonsShort[pseudoIndex % entryReasonsShort.length];
 
-  const entryPriceNum = parseFloat(priceStr);
+  const entryPriceNum = price;
+  const priceStr = price.toString();
   const optimalEntryNum = isLong 
     ? entryPriceNum * (1 - (0.002 + (pseudoIndex % 15) * 0.001))
     : entryPriceNum * (1 + (0.002 + (pseudoIndex % 15) * 0.001));
