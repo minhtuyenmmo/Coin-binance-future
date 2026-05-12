@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, Zap, ChevronDown, ChevronUp, Clock, Star, Coins, Github, Loader2, Crown, Activity, Compass, Layers } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, Zap, ChevronDown, ChevronUp, Clock, Star, Coins, Github, Loader2, Crown, Activity, Compass, Layers, Sparkles } from 'lucide-react';
 import { Timeframe, fetchTopFutures, SignalData, TOP_50_COINS } from './lib/binance';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -152,19 +152,28 @@ export default function App() {
   }, [filteredSignals, tradeMode]);
 
   const topSignals = [...adjustedSignals].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
+  
+  const optimalSignals = useMemo(() => {
+    return [...adjustedSignals]
+      .filter(s => !s.hasFakeVolume)
+      .sort((a, b) => {
+        // Weigh winRate heavily but also consider price proximity to optimalEntry
+        const scoreA = a.winRate * 1.5 - (Math.abs(a.price - parseFloat(a.indicators.optimalEntry)) / a.price * 100);
+        const scoreB = b.winRate * 1.5 - (Math.abs(b.price - parseFloat(b.indicators.optimalEntry)) / b.price * 100);
+        return scoreB - scoreA;
+      })
+      .slice(0, 1);
+  }, [adjustedSignals]);
+
   const tableSignals = (() => {
     const sorted = [...adjustedSignals].sort((a, b) => {
       return winRateSort === 'desc' ? b.winRate - a.winRate : a.winRate - b.winRate;
     });
     
-    // Đưa BTC lên đầu bảng
-    const btcIndex = sorted.findIndex(s => s.symbol === 'BTCUSDT');
-    if (btcIndex > -1) {
-      const btcSignal = sorted.splice(btcIndex, 1)[0];
-      sorted.unshift(btcSignal);
-    }
     return sorted;
   })();
+
+  const optimalSymbols = useMemo(() => new Set(optimalSignals.map(s => s.symbol)), [optimalSignals]);
 
 
 
@@ -343,6 +352,29 @@ export default function App() {
           </div>
         )}
 
+        {/* Kèo Tối Ưu Section */}
+        {!loading && optimalSignals.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="bg-amber-500/10 p-1.5 rounded-lg">
+                <Sparkles className="w-5 h-5 text-amber-500" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white tracking-tight">Kèo Tối Ưu (Optimal Entry)</h2>
+                <p className="text-sm text-slate-400">Tín hiệu có điểm vào lệnh đẹp nhất hiện tại.</p>
+              </div>
+            </div>
+            
+            <div className="flex justify-start">
+              {optimalSignals.map((signal) => (
+                <div key={signal.symbol} className="w-full max-w-md">
+                  <OptimalCard signal={signal} tradeMode={tradeMode} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Main Board */}
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
@@ -413,7 +445,7 @@ export default function App() {
                     </tr>
                   ) : (
                     tableSignals.map((signal) => (
-                      <TableRow key={signal.symbol} signal={signal} tradeMode={tradeMode} />
+                      <TableRow key={signal.symbol} signal={signal} tradeMode={tradeMode} isOptimal={optimalSymbols.has(signal.symbol)} />
                     ))
                   )}
                 </tbody>
@@ -428,6 +460,76 @@ export default function App() {
         </div>
       </main>
     </div>
+  );
+}
+
+function OptimalCard({ signal, tradeMode }: { signal: SignalData; tradeMode: TradeMode }) {
+  const isLong = signal.type === 'LONG';
+  const distance = Math.abs(signal.price - parseFloat(signal.indicators.optimalEntry)) / signal.price;
+  const isVaoNgay = distance < 0.003; // Within 0.3%
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-slate-900/40 p-5 flex flex-col border-l-4 border-l-amber-500"
+    >
+      <div className="flex justify-between items-start mb-3">
+        <div className="flex items-center gap-2">
+          <div className={cn(
+            "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm",
+            isLong ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+          )}>
+            {isLong ? 'B' : 'S'}
+          </div>
+          <div>
+            <h4 className="font-bold text-white text-base">
+              {signal.symbol.replace('USDT', '')}
+              {isVaoNgay && (
+                <span className="ml-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-500 text-slate-950 uppercase tracking-tighter animate-pulse">
+                  Vào ngay
+                </span>
+              )}
+            </h4>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-slate-500 uppercase font-semibold">Price:</span>
+              <span className="text-xs font-mono text-slate-300">${signal.price}</span>
+            </div>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] text-slate-500 uppercase font-semibold">Tỉ lệ thắng</div>
+          <div className="text-lg font-bold text-emerald-400 leading-none">{signal.winRate}%</div>
+        </div>
+      </div>
+
+      <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/80 mb-3">
+        <div className="flex items-center gap-1.5 text-[10px] text-slate-500 uppercase font-semibold mb-1">
+          <Crosshair className="w-3 h-3 text-amber-500" /> Entry Tối Ưu
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-amber-400 text-base font-bold">${signal.indicators.optimalEntry}</span>
+          <span className="text-[10px] text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+            {distance < 0.001 ? 'Ready' : `+${(distance * 100).toFixed(2)}%`}
+          </span>
+        </div>
+      </div>
+
+      <p className="text-[10px] text-slate-400 line-clamp-1 italic mb-4">
+        {signal.indicators.entryStrategy}
+      </p>
+
+      <div className="grid grid-cols-2 gap-2 mt-auto">
+        <div className="flex flex-col bg-emerald-500/5 border border-emerald-500/10 rounded-lg p-2">
+          <span className="text-[9px] text-emerald-500/70 font-semibold uppercase">TP (ROE target)</span>
+          <span className="text-xs font-bold text-emerald-400">${signal.tp}</span>
+        </div>
+        <div className="flex flex-col bg-rose-500/5 border border-rose-500/10 rounded-lg p-2">
+          <span className="text-[9px] text-rose-500/70 font-semibold uppercase">SL (Safety)</span>
+          <span className="text-xs font-bold text-rose-400">${signal.sl}</span>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -521,7 +623,7 @@ function TopCard({ signal, rank, tradeMode }: { signal: SignalData; rank: number
   );
 }
 
-function TableRow({ signal, tradeMode }: { signal: SignalData; tradeMode: TradeMode }) {
+function TableRow({ signal, tradeMode, isOptimal }: { signal: SignalData; tradeMode: TradeMode; isOptimal?: boolean }) {
   const isLong = signal.type === 'LONG';
   const [isExpanded, setIsExpanded] = useState(false);
   const isInteractive = tradeMode !== 'VOLUME';
@@ -535,6 +637,7 @@ function TableRow({ signal, tradeMode }: { signal: SignalData; tradeMode: TradeM
       <td className="sm:px-6 sm:py-4">
         <div className="flex items-center justify-between sm:justify-start">
           <div className="font-medium text-white flex items-center gap-1.5">
+            {isOptimal && <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />}
             {signal.symbol.replace('USDT', '')}
             <span className="text-slate-500 text-xs">USDT</span>
             {signal.hasFakeVolume && (
