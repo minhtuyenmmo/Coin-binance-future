@@ -201,16 +201,22 @@ export default function App() {
               </div>
             </a>
             <div className="flex flex-col justify-center">
-              <a 
-                href="https://www.facebook.com/minhtuyenmmo/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="hover:opacity-80 transition-opacity leading-none pt-1"
-              >
-                <h1 className="text-xl font-bold tracking-tight text-white">
-                  Binance<span className="text-emerald-400">Future</span> AI
-                </h1>
-              </a>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <a 
+                  href="https://www.facebook.com/minhtuyenmmo/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="hover:opacity-80 transition-opacity leading-none pt-1"
+                >
+                  <h1 className="text-xl font-bold tracking-tight text-white">
+                    Binance<span className="text-emerald-400">Future</span> AI
+                  </h1>
+                </a>
+                <div className="flex items-center gap-1 text-[11px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full border border-amber-500/20">
+                  <a href="https://www.facebook.com/minhtuyenmmo/" target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">Liên hệ mua bản vip</a>: 
+                  <a href="https://www.facebook.com/minhtuyenmmo/" target="_blank" rel="noopener noreferrer" className="hover:underline text-amber-400 font-bold">link</a>
+                </div>
+              </div>
               <button 
                 onClick={handleUpdate}
                 disabled={isUpdating}
