@@ -19,7 +19,7 @@ export default defineConfig(({mode}) => {
         include: ['src/**/*.ts', 'src/**/*.tsx', 'src/**/*.js', 'src/**/*.jsx'],
         exclude: [/node_modules/],
         apply: 'build', // Chỉ obfuscate khi build production
-        debugger: true,
+        debugger: false,
         options: {
           compact: true,
           controlFlowFlattening: true,
