@@ -212,17 +212,17 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-4 text-sm">
-            <div className="hidden sm:flex bg-slate-900 rounded-lg p-1 border border-slate-800">
-              {(['15m', '30m', '1h', '4h', '1d'] as Timeframe[]).map((tf) => (
+            <div className="hidden sm:flex bg-slate-900 rounded-lg p-1 border border-slate-800 max-w-[60vw] overflow-x-auto no-scrollbar">
+              {(['5m', '15m', '30m', '1h', '2h', '4h', '1d', '2d', '1w', '2w', '1M', '3M', '6M', '1y'] as Timeframe[]).map((tf) => (
                 <button
                   key={tf}
                   onClick={() => setTimeframe(tf)}
                   className={cn(
-                    "px-3 py-1 rounded-md font-medium transition-colors",
+                    "px-2 sm:px-3 py-1 rounded-md font-medium transition-colors whitespace-nowrap",
                     timeframe === tf ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
                   )}
                 >
-                  {tf.toUpperCase()}
+                  {tf.toLowerCase() === '1m' ? '1M' : tf.toLowerCase() === '3m' ? '3M' : tf.toLowerCase() === '6m' ? '6M' : tf}
                 </button>
               ))}
             </div>
@@ -246,17 +246,17 @@ export default function App() {
 
       {/* Mobile Timeframe Scroll */}
       <div className="sm:hidden px-4 mt-4 overflow-x-auto pb-2 -mb-2 no-scrollbar">
-        <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800 w-max mx-auto">
-          {(['15m', '30m', '1h', '4h', '1d'] as Timeframe[]).map((tf) => (
+        <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800 w-max">
+          {(['5m', '15m', '30m', '1h', '2h', '4h', '1d', '2d', '1w', '2w', '1M', '3M', '6M', '1y'] as Timeframe[]).map((tf) => (
             <button
               key={tf}
               onClick={() => setTimeframe(tf)}
               className={cn(
-                "px-4 py-1.5 rounded-md text-sm font-medium transition-colors",
+                "px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap",
                 timeframe === tf ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
               )}
             >
-              {tf.toUpperCase()}
+              {tf.toLowerCase() === '1m' ? '1M' : tf.toLowerCase() === '3m' ? '3M' : tf.toLowerCase() === '6m' ? '6M' : tf}
             </button>
           ))}
         </div>
@@ -269,7 +269,9 @@ export default function App() {
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold text-white tracking-tight">Top 3 Tín Hiệu Nổi Bật</h2>
-            <p className="text-slate-400 mt-1">Các đồng coin có xác suất thắng cao nhất theo phân tích dòng tiền và động lượng.</p>
+            <p className="text-red-500 font-bold animate-pulse mt-1">
+              Mặc định hệ thống phân tích theo dòng tiền và động lượng "Volume"
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button

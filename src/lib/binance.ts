@@ -9,7 +9,7 @@ export interface BinanceTicker {
   lowPrice: string;
 }
 
-export type Timeframe = '15m' | '30m' | '1h' | '4h' | '1d';
+export type Timeframe = '5m' | '15m' | '30m' | '1h' | '2h' | '4h' | '1d' | '2d' | '1w' | '2w' | '1M' | '3M' | '6M' | '1y';
 
 export interface SignalData {
   symbol: string;
@@ -90,11 +90,20 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
   let tfMultiplier = 1;
   let hashSeed = 1;
   switch (timeframe) {
+    case '5m': tfMultiplier = 0.1; hashSeed = 5; break;
     case '15m': tfMultiplier = 0.2; hashSeed = 15; break;
     case '30m': tfMultiplier = 0.3; hashSeed = 30; break;
     case '1h': tfMultiplier = 0.5; hashSeed = 60; break;
+    case '2h': tfMultiplier = 0.8; hashSeed = 120; break;
     case '4h': tfMultiplier = 1.2; hashSeed = 240; break;
     case '1d': tfMultiplier = 3.0; hashSeed = 1440; break;
+    case '2d': tfMultiplier = 4.5; hashSeed = 2880; break;
+    case '1w': tfMultiplier = 8.0; hashSeed = 10080; break;
+    case '2w': tfMultiplier = 12.0; hashSeed = 20160; break;
+    case '1M': tfMultiplier = 18.0; hashSeed = 43200; break;
+    case '3M': tfMultiplier = 35.0; hashSeed = 129600; break;
+    case '6M': tfMultiplier = 60.0; hashSeed = 259200; break;
+    case '1y': tfMultiplier = 100.0; hashSeed = 518400; break;
   }
 
   // Tạo hash từ symbol để giữ tín hiệu nhất quán trên giao diện demo
