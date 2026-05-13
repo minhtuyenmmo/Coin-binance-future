@@ -170,6 +170,13 @@ export default function App() {
       return winRateSort === 'desc' ? b.winRate - a.winRate : a.winRate - b.winRate;
     });
     
+    // Đưa BTC lên đầu bảng
+    const btcIndex = sorted.findIndex(s => s.symbol === 'BTCUSDT');
+    if (btcIndex > -1) {
+      const btcSignal = sorted.splice(btcIndex, 1)[0];
+      sorted.unshift(btcSignal);
+    }
+    
     return sorted;
   })();
 
@@ -421,6 +428,7 @@ export default function App() {
               <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800 hidden sm:table-header-group">
                   <tr>
+                    <th className="px-6 py-4 font-medium w-16">STT</th>
                     <th className="px-6 py-4 font-medium">Cặp giao dịch (USDT)</th>
                     <th className="px-6 py-4 font-medium">Giá hiện tại</th>
                     <th className="px-6 py-4 font-medium">Tín hiệu</th>
@@ -441,11 +449,11 @@ export default function App() {
                 <tbody className="divide-y divide-slate-800/50">
                   {loading && signals.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-slate-500">Đang tải dữ liệu từ Binance...</td>
+                      <td colSpan={8} className="px-6 py-12 text-center text-slate-500">Đang tải dữ liệu từ Binance...</td>
                     </tr>
                   ) : (
-                    tableSignals.map((signal) => (
-                      <TableRow key={signal.symbol} signal={signal} tradeMode={tradeMode} isOptimal={optimalSymbols.has(signal.symbol)} />
+                    tableSignals.map((signal, index) => (
+                      <TableRow key={signal.symbol} signal={signal} tradeMode={tradeMode} isOptimal={optimalSymbols.has(signal.symbol)} index={index + 1} />
                     ))
                   )}
                 </tbody>
@@ -623,7 +631,7 @@ function TopCard({ signal, rank, tradeMode }: { signal: SignalData; rank: number
   );
 }
 
-function TableRow({ signal, tradeMode, isOptimal }: { signal: SignalData; tradeMode: TradeMode; isOptimal?: boolean }) {
+function TableRow({ signal, tradeMode, isOptimal, index }: { signal: SignalData; tradeMode: TradeMode; isOptimal?: boolean; index: number }) {
   const isLong = signal.type === 'LONG';
   const [isExpanded, setIsExpanded] = useState(false);
   const isInteractive = tradeMode !== 'VOLUME';
@@ -634,9 +642,14 @@ function TableRow({ signal, tradeMode, isOptimal }: { signal: SignalData; tradeM
         onClick={() => isInteractive && setIsExpanded(!isExpanded)}
         className={cn("hover:bg-slate-800/30 transition-colors flex flex-col sm:table-row px-4 py-4 sm:p-0 border-b border-slate-800/50 sm:border-b-0", isInteractive && "cursor-pointer hover:bg-slate-800/60")}
       >
+      <td className="sm:px-6 sm:py-4 hidden sm:table-cell text-slate-500 text-sm font-mono w-16">
+        #{index}
+      </td>
       <td className="sm:px-6 sm:py-4">
         <div className="flex items-center justify-between sm:justify-start">
-          <div className="font-medium text-white flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="sm:hidden text-slate-500 text-sm font-mono align-middle mr-1">#{index}</span>
+            <div className="font-medium text-white flex items-center gap-1.5">
             {isOptimal && <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />}
             {signal.symbol.replace('USDT', '')}
             <span className="text-slate-500 text-xs">USDT</span>
@@ -645,6 +658,7 @@ function TableRow({ signal, tradeMode, isOptimal }: { signal: SignalData; tradeM
                 <ShieldAlert className="w-3 h-3" /> Ảo
               </span>
             )}
+            </div>
           </div>
           {/* Mobile view signal badge */}
           <div className={cn(
@@ -703,7 +717,7 @@ function TableRow({ signal, tradeMode, isOptimal }: { signal: SignalData; tradeM
     </tr>
     {isExpanded && isInteractive && (
       <tr className="flex flex-col sm:table-row bg-slate-900/50 sm:border-none">
-        <td colSpan={7} className="p-4 sm:px-6 border-b border-slate-800/50">
+        <td colSpan={8} className="p-4 sm:px-6 border-b border-slate-800/50">
           <SignalIndicatorsDetail signal={signal} tradeMode={tradeMode} />
         </td>
       </tr>
