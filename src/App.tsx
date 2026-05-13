@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, Zap, ChevronDown, ChevronUp, Clock, Star, Coins, Github, Loader2, Crown, Activity, Compass, Layers, Sparkles } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, Zap, ChevronDown, ChevronUp, Clock, Star, Coins, Github, Loader2, Crown, Activity, Compass, Layers, Sparkles, Search } from 'lucide-react';
 import { Timeframe, fetchTopFutures, SignalData, TOP_50_COINS } from './lib/binance';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -16,6 +16,7 @@ export default function App() {
   const [winRateSort, setWinRateSort] = useState<'desc' | 'asc'>('desc');
   const [filterWashTrade, setFilterWashTrade] = useState<boolean>(true);
   const [filterTopCoin, setFilterTopCoin] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [tradeMode, setTradeMode] = useState<TradeMode>('VOLUME');
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateStatus, setUpdateStatus] = useState('Update Tool');
@@ -52,101 +53,79 @@ export default function App() {
   const filteredSignals = signals.filter(s => {
     if (filterWashTrade && s.hasFakeVolume) return false;
     if (filterTopCoin && !TOP_50_COINS.includes(s.symbol.replace('USDT', ''))) return false;
+    if (searchQuery && !s.symbol.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
   
   const adjustedSignals = useMemo(() => {
     return filteredSignals.map(signal => {
-      if (tradeMode === 'VOLUME') return signal;
+      // Tính toán chung cho TẤT CẢ các phương pháp để có subWinRates
+      let techBase = 50;
+      let ictBase = 50;
+      let wyckoffBase = 50;
       
-      let techWinRate = 50; 
       const rsi = signal.indicators.rsi;
       const { macd, ichimoku, elliottWave, ict, wyckoff } = signal.indicators;
       const isLong = signal.type === 'LONG';
       
-      if (tradeMode === 'TECHNICAL') {
-        if (isLong) {
-          if (macd === 'BULLISH') techWinRate += 15;
-          if (ichimoku === 'BULLISH') techWinRate += 12;
-          if (rsi < 45) techWinRate += (45 - rsi) * 0.8;
-          if (elliottWave.includes('Sóng 3')) techWinRate += 10;
-          if (elliottWave.includes('Sóng 5')) techWinRate += 5;
-        } else {
-          if (macd === 'BEARISH') techWinRate += 15;
-          if (ichimoku === 'BEARISH') techWinRate += 12;
-          if (rsi > 55) techWinRate += (rsi - 55) * 0.8;
-          if (elliottWave.includes('Sóng C')) techWinRate += 10;
-          if (elliottWave.includes('Sóng A')) techWinRate += 5;
-        }
-      } else if (tradeMode === 'ICT') {
-        if (ict.marketStructure === 'BOS') techWinRate += 15;
-        if (ict.marketStructure === 'ChoCh') techWinRate += 10;
-        if (isLong && ict.liquidity === 'SSL Swept') techWinRate += 10;
-        if (!isLong && ict.liquidity === 'BSL Swept') techWinRate += 10;
-        if (isLong && ict.fvg === 'Bullish FVG') techWinRate += 10;
-        if (!isLong && ict.fvg === 'Bearish FVG') techWinRate += 10;
-        if (ict.poi === 'Orderblock') techWinRate += 10;
-        if (ict.poi === 'Breaker Block') techWinRate += 5;
-      } else if (tradeMode === 'WYCKOFF') {
-        if (wyckoff.phase === 'Phase A') techWinRate += 5;
-        if (wyckoff.phase === 'Phase B') techWinRate += 5;
-        if (wyckoff.phase === 'Phase C') techWinRate += 20;
-        if (wyckoff.phase === 'Phase D') techWinRate += 15;
-        if (wyckoff.phase === 'Phase E') techWinRate += 10;
-        
-        if (wyckoff.schematic === 'Accumulation' && isLong) techWinRate += 15;
-        if (wyckoff.schematic === 'Distribution' && !isLong) techWinRate += 15;
-        if (wyckoff.event === 'Spring/UTAD') techWinRate += 10;
-      } else if (tradeMode === 'COMBINED') {
-        // Average of three
-        let techBase = 50;
-        let ictBase = 50;
-        let wyckoffBase = 50;
-        
-        if (isLong) {
-          if (macd === 'BULLISH') techBase += 15;
-          if (ichimoku === 'BULLISH') techBase += 12;
-          if (rsi < 45) techBase += (45 - rsi) * 0.8;
-          if (elliottWave.includes('Sóng 3')) techBase += 10;
-        } else {
-          if (macd === 'BEARISH') techBase += 15;
-          if (ichimoku === 'BEARISH') techBase += 12;
-          if (rsi > 55) techBase += (rsi - 55) * 0.8;
-          if (elliottWave.includes('Sóng C')) techBase += 10;
-        }
-
-        if (ict.marketStructure === 'BOS') ictBase += 15;
-        if (isLong && ict.liquidity === 'SSL Swept') ictBase += 10;
-        if (!isLong && ict.liquidity === 'BSL Swept') ictBase += 10;
-        if (isLong && ict.fvg === 'Bullish FVG') ictBase += 10;
-        if (!isLong && ict.fvg === 'Bearish FVG') ictBase += 5;
-
-        if (wyckoff.phase === 'Phase C' || wyckoff.phase === 'Phase D') wyckoffBase += 20;
-        if (isLong && wyckoff.schematic === 'Accumulation') wyckoffBase += 15;
-        if (!isLong && wyckoff.schematic === 'Distribution') wyckoffBase += 15;
-        if (wyckoff.event === 'Spring/UTAD') wyckoffBase += 10;
-        
-        const finalTechBase = Math.min(99, techBase);
-        const finalIctBase = Math.min(99, ictBase);
-        const finalWyckoffBase = Math.min(99, wyckoffBase);
-
-        techWinRate = (finalTechBase + finalIctBase + finalWyckoffBase) / 3 + 10; // +10 combined synergy bonus
-        
-        return {
-          ...signal,
-          winRate: Math.min(98.5, Number(techWinRate.toFixed(1))),
-          subWinRates: {
-            volume: signal.winRate,
-            technical: finalTechBase,
-            ict: finalIctBase,
-            wyckoff: finalWyckoffBase
-          }
-        };
+      // Tính Technical
+      if (isLong) {
+        if (macd === 'BULLISH') techBase += 15;
+        if (ichimoku === 'BULLISH') techBase += 12;
+        if (rsi < 45) techBase += (45 - rsi) * 0.8;
+        if (elliottWave.includes('Sóng 3')) techBase += 10;
+        if (elliottWave.includes('Sóng 5')) techBase += 5;
+      } else {
+        if (macd === 'BEARISH') techBase += 15;
+        if (ichimoku === 'BEARISH') techBase += 12;
+        if (rsi > 55) techBase += (rsi - 55) * 0.8;
+        if (elliottWave.includes('Sóng C')) techBase += 10;
+        if (elliottWave.includes('Sóng A')) techBase += 5;
       }
       
+      // Tính ICT
+      if (ict.marketStructure === 'BOS') ictBase += 15;
+      if (ict.marketStructure === 'ChoCh') ictBase += 10;
+      if (isLong && ict.liquidity === 'SSL Swept') ictBase += 10;
+      if (!isLong && ict.liquidity === 'BSL Swept') ictBase += 10;
+      if (isLong && ict.fvg === 'Bullish FVG') ictBase += 10;
+      if (!isLong && ict.fvg === 'Bearish FVG') ictBase += 10;
+      if (ict.poi === 'Orderblock') ictBase += 10;
+      if (ict.poi === 'Breaker Block') ictBase += 5;
+      
+      // Tính Wyckoff
+      if (wyckoff.phase === 'Phase A') wyckoffBase += 5;
+      if (wyckoff.phase === 'Phase B') wyckoffBase += 5;
+      if (wyckoff.phase === 'Phase C') wyckoffBase += 20;
+      if (wyckoff.phase === 'Phase D') wyckoffBase += 15;
+      if (wyckoff.phase === 'Phase E') wyckoffBase += 10;
+      if (wyckoff.schematic === 'Accumulation' && isLong) wyckoffBase += 15;
+      if (wyckoff.schematic === 'Distribution' && !isLong) wyckoffBase += 15;
+      if (wyckoff.event === 'Spring/UTAD') wyckoffBase += 10;
+      
+      const finalTechBase = Math.min(99, techBase);
+      const finalIctBase = Math.min(99, ictBase);
+      const finalWyckoffBase = Math.min(99, wyckoffBase);
+      const combinedWinRate = (finalTechBase + finalIctBase + finalWyckoffBase) / 3 + 10;
+
+      const subWinRates = {
+        volume: signal.winRate,
+        technical: finalTechBase,
+        ict: finalIctBase,
+        wyckoff: finalWyckoffBase,
+        combined: Math.min(98.5, Number(combinedWinRate.toFixed(1)))
+      };
+
+      let finalWinRate = signal.winRate; // Default to VOLUME
+      if (tradeMode === 'TECHNICAL') finalWinRate = finalTechBase;
+      if (tradeMode === 'ICT') finalWinRate = finalIctBase;
+      if (tradeMode === 'WYCKOFF') finalWinRate = finalWyckoffBase;
+      if (tradeMode === 'COMBINED') finalWinRate = subWinRates.combined;
+
       return {
         ...signal,
-        winRate: Math.min(98.5, Number(techWinRate.toFixed(1))) // Giới hạn max 98.5%
+        winRate: Math.min(98.5, Number(finalWinRate.toFixed(1))),
+        subWinRates
       };
     });
   }, [filteredSignals, tradeMode]);
@@ -419,6 +398,19 @@ export default function App() {
                 <span className="font-medium">Lọc Volume Ảo</span>
               </button>
               
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-slate-500" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Tìm coin..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block w-full sm:w-48 pl-10 px-3 py-1.5 hover:border-slate-600 transition-colors placeholder-slate-500"
+                />
+              </div>
+              
               <button
                 onClick={() => setWinRateSort(prev => prev === 'desc' ? 'asc' : 'desc')}
                 className="sm:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-sm text-slate-300 hover:text-white"
@@ -640,7 +632,7 @@ function TopCard({ signal, rank, tradeMode }: { signal: SignalData; rank: number
 function TableRow({ signal, tradeMode, isOptimal, index }: { signal: SignalData; tradeMode: TradeMode; isOptimal?: boolean; index: number }) {
   const isLong = signal.type === 'LONG';
   const [isExpanded, setIsExpanded] = useState(false);
-  const isInteractive = tradeMode !== 'VOLUME';
+  const isInteractive = true;
   
   return (
     <>
@@ -733,11 +725,12 @@ function TableRow({ signal, tradeMode, isOptimal, index }: { signal: SignalData;
 }
 
 function SignalIndicatorsDetail({ signal, tradeMode }: { signal: SignalData; tradeMode: TradeMode }) {
-  if (tradeMode === 'VOLUME' || !signal.indicators) return null;
+  if (!signal.indicators) return null;
   
   return (
         <div className="mb-4 pt-4 border-t border-slate-800/50">
           <div className="text-xs font-semibold text-sky-400 mb-2 flex items-center gap-1.5 uppercase tracking-wider">
+            {tradeMode === 'VOLUME' && <><Activity className="w-3.5 h-3.5 text-emerald-400" /> <span className="text-emerald-400">Tỉ Lệ Thắng Tổng Hợp</span></>}
             {tradeMode === 'TECHNICAL' && <><Activity className="w-3.5 h-3.5" /> Phân Tích Kĩ Thuật</>}
             {tradeMode === 'ICT' && <><Target className="w-3.5 h-3.5 text-purple-400" /> <span className="text-purple-400">Smc / ICT Analysis</span></>}
             {tradeMode === 'WYCKOFF' && <><Compass className="w-3.5 h-3.5 text-amber-400" /> <span className="text-amber-400">Wyckoff Logic</span></>}
@@ -769,8 +762,8 @@ function SignalIndicatorsDetail({ signal, tradeMode }: { signal: SignalData; tra
               </>
             )}
 
-            {tradeMode === 'COMBINED' && signal.subWinRates && (
-              <div className="col-span-2 grid grid-cols-2 gap-2 mb-2">
+            {(tradeMode === 'COMBINED' || tradeMode === 'VOLUME') && signal.subWinRates && (
+              <div className="col-span-2 grid grid-cols-2 lg:grid-cols-4 gap-2 mb-2">
                 <div className="flex flex-col bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-2">
                   <span className="text-[10px] text-emerald-500/70 font-semibold uppercase">Volume Rate</span>
                   <span className="text-sm font-bold text-emerald-400">{signal.subWinRates.volume}%</span>
