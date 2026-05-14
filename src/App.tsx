@@ -215,18 +215,22 @@ export default function App() {
                   <Crown className="w-3.5 h-3.5" /> Trade nâng cao
                 </button>
               </div>
-              <button 
-                onClick={handleUpdate}
-                disabled={isUpdating}
-                title="Nguồn: https://github.com/minhtuyenmmo/Coin-binance-future"
-                className={cn(
-                  "flex items-center gap-1 mt-1 text-[11px] font-medium transition-colors w-max",
-                  isUpdating ? "text-emerald-400" : "text-slate-500 hover:text-emerald-400"
-                )}
-              >
-                {isUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Github className="w-3 h-3" />}
-                <span>{updateStatus}</span>
-              </button>
+              <div className="relative group">
+                <button 
+                  onClick={handleUpdate}
+                  disabled={isUpdating}
+                  className={cn(
+                    "flex items-center gap-1 mt-1 text-[11px] font-medium transition-colors w-max",
+                    isUpdating ? "text-emerald-400" : "text-slate-500 hover:text-emerald-400"
+                  )}
+                >
+                  {isUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Github className="w-3 h-3" />}
+                  <span>{updateStatus}</span>
+                </button>
+                <div className="absolute left-0 top-full mt-1 hidden group-hover:block w-max bg-slate-800 text-slate-300 text-[10px] px-2 py-1 rounded shadow-lg z-50 border border-slate-700 pointer-events-none">
+                  Nguồn: https://github.com/minhtuyenmmo/Coin-binance-future
+                </div>
+              </div>
             </div>
           </div>
           
