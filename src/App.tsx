@@ -5,6 +5,7 @@ import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import AdvancedTradeModal from './components/AdvancedTradeModal';
 
 type TradeMode = 'VOLUME' | 'TECHNICAL' | 'ICT' | 'WYCKOFF' | 'COMBINED';
 
@@ -20,6 +21,22 @@ export default function App() {
   const [tradeMode, setTradeMode] = useState<TradeMode>('VOLUME');
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateStatus, setUpdateStatus] = useState('Update Tool');
+  
+  const [showAdvancedAuth, setShowAdvancedAuth] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const handleLogin = () => {
+    // Basic obscuring to make it harder to read plainly in source code
+    // btoa("autorun123") is "YXV0b3J1bjEyMw=="
+    if (btoa(passwordInput) === 'YXV0b3J1bjEyMw==') {
+      setIsAuthenticated(true);
+      setErrorMsg('');
+    } else {
+      setErrorMsg('Mật khẩu không chính xác!');
+    }
+  };
 
   const handleUpdate = () => {
     if (isUpdating) return;
@@ -191,10 +208,12 @@ export default function App() {
                     Binance<span className="text-emerald-400">Future</span> AI
                   </h1>
                 </a>
-                <div className="flex items-center gap-1 text-[11px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full border border-amber-500/20">
-                  <a href="https://www.facebook.com/minhtuyenmmo/" target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">Liên hệ mua bản vip</a>: 
-                  <a href="https://www.facebook.com/minhtuyenmmo/" target="_blank" rel="noopener noreferrer" className="hover:underline text-amber-400 font-bold">link</a>
-                </div>
+                <button 
+                  onClick={() => setShowAdvancedAuth(true)}
+                  className="flex items-center gap-1 text-[11px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 px-2.5 py-0.5 rounded-full border border-amber-500/30 transition-colors cursor-pointer font-bold"
+                >
+                  <Crown className="w-3.5 h-3.5" /> Trade nâng cao
+                </button>
               </div>
               <button 
                 onClick={handleUpdate}
@@ -467,6 +486,79 @@ export default function App() {
           <p>Không nên xem đây là lời khuyên đầu tư tài chính.</p>
         </div>
       </main>
+
+      <AnimatePresence>
+        {showAdvancedAuth && !isAuthenticated && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl relative"
+            >
+              <button 
+                onClick={() => setShowAdvancedAuth(false)} 
+                className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"
+                title="Đóng"
+              >
+                <Search className="w-5 h-5 rotate-45 transform pointer-events-none opacity-0" />
+                <span className="absolute inset-0 flex items-center justify-center text-xl leading-none">×</span>
+              </button>
+              
+              <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                <Crown className="w-5 h-5 text-amber-500"/> Trade Nâng Cao
+              </h3>
+              
+              <p className="text-sm text-slate-400 mb-6 font-medium">
+                Nhập mật khẩu để truy cập tính năng tìm điểm vào lệnh, đòn bẩy dự kiến với tỉ lệ thắng cao. <a href="https://www.facebook.com/minhtuyenmmo/" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 transition-colors">Liên hệ Admin</a>
+              </p>
+              
+              <div className="space-y-4">
+                <div>
+                  <input 
+                    type="password"
+                    placeholder="Nhập mật khẩu..."
+                    value={passwordInput}
+                    onChange={e => setPasswordInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                    className="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500/50 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all font-medium"
+                  />
+                  {errorMsg && (
+                    <motion.p 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-red-400 text-sm mt-2 font-medium flex items-center gap-1"
+                    >
+                      <ShieldAlert className="w-4 h-4" /> {errorMsg}
+                    </motion.p>
+                  )}
+                </div>
+                
+                <button 
+                  onClick={handleLogin}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
+                >
+                  Mở Khóa Tính Năng VIP
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showAdvancedAuth && isAuthenticated && (
+          <AdvancedTradeModal 
+            onClose={() => setShowAdvancedAuth(false)}
+            signals={adjustedSignals}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
