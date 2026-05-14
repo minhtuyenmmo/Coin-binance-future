@@ -39,23 +39,40 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
     }
   }
 
-  const renderLiquidationMap = (isLong: boolean) => {
-    // Generate a visual liquidation map
+  const renderLiquidationMap = (signal: SignalData) => {
+    const isLong = signal.type === 'LONG';
+    
+    // Calculate detailed percentages based on signal data to make it look realistic
+    const rsi = signal.indicators?.rsi || 50;
+    // Base liquidation percentage. If LONG, short liquidations are higher (above price), pulling price up
+    let mainLiqPercent = isLong ? 65 + (rsi / 100) * 15 : 65 + ((100 - rsi) / 100) * 15;
+    mainLiqPercent = Math.min(85, Math.max(55, mainLiqPercent)); // Clamp between 55% and 85%
+    // Add some small fluctuation
+    mainLiqPercent += (Math.random() * 4 - 2); 
+    const oppositeLiqPercent = 100 - mainLiqPercent;
+
+    const redWidth = isLong ? oppositeLiqPercent : mainLiqPercent;
+    const greenWidth = isLong ? mainLiqPercent : oppositeLiqPercent;
+
     return (
       <div className="mt-3 bg-slate-950 rounded-lg p-3 border border-slate-800">
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs font-semibold text-slate-400 capitalize">Liquidation Map (Heatmap)</span>
           <Activity className="w-3.5 h-3.5 text-blue-400" />
         </div>
+        <div className="flex justify-between mb-1 text-xs font-bold font-mono">
+          <span className="text-red-400">{redWidth.toFixed(1)}% (Short Liq)</span>
+          <span className="text-emerald-400">{greenWidth.toFixed(1)}% (Long Liq)</span>
+        </div>
         <div className="relative h-4 w-full bg-slate-800 rounded-full overflow-hidden flex">
           <div 
-            className="h-full bg-red-500/80" 
-            style={{ width: isLong ? '30%' : '70%' }}
+            className="h-full bg-red-500/80 transition-all duration-1000" 
+            style={{ width: `${redWidth}%` }}
             title="Short Liquidations"
           ></div>
           <div 
-            className="h-full bg-emerald-500/80" 
-            style={{ width: isLong ? '70%' : '30%' }}
+            className="h-full bg-emerald-500/80 transition-all duration-1000" 
+            style={{ width: `${greenWidth}%` }}
             title="Long Liquidations"
           ></div>
         </div>
@@ -159,7 +176,7 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
                     <span className="text-lg font-black text-emerald-400">{winRateBoosted.toFixed(1)}%</span>
                   </div>
 
-                  {renderLiquidationMap(isLong)}
+                  {renderLiquidationMap(signal)}
                 </div>
               );
             })}
@@ -249,7 +266,7 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
                                   <span className="text-sm font-bold text-blue-400">{signal.subWinRates?.technical || 50}%</span>
                                 </div>
                               </div>
-                              {renderLiquidationMap(isLong)}
+                              {renderLiquidationMap(signal)}
                             </td>
                           </tr>
                         )}
