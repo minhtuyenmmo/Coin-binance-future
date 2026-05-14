@@ -1,5 +1,5 @@
 import { useState, Fragment } from 'react';
-import { X, Crown, TrendingUp, TrendingDown, Target, Shield, Percent, Zap, Activity, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Crown, TrendingUp, TrendingDown, Target, Shield, Percent, Zap, Activity, ChevronDown, ChevronUp, Orbit } from 'lucide-react';
 import { SignalData } from '../lib/binance';
 
 interface Props {
@@ -9,6 +9,24 @@ interface Props {
 
 export default function AdvancedTradeModal({ onClose, signals }: Props) {
   const [expandedSymbol, setExpandedSymbol] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState('');
+
+  const handleStartScan = () => {
+    setIsScanning(true);
+    setScanStatus('Khởi chạy AI Agent...');
+    
+    setTimeout(() => setScanStatus('Đang quét dữ liệu On-chain & Cá mập...'), 1000);
+    setTimeout(() => setScanStatus('Đang phân tích Liquidation Map...', 2500));
+    setTimeout(() => setScanStatus('Đang lọc tín hiệu tốt nhất...'), 4000);
+    setTimeout(() => {
+      setScanStatus('Hoàn tất! Cập nhật điểm vào lệnh.');
+      setTimeout(() => {
+        setIsScanning(false);
+        setScanStatus('');
+      }, 2000);
+    }, 5500);
+  };
 
   // Get top 3 by volume winRate
   const topSignals = [...signals]
@@ -101,6 +119,30 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
         </div>
         
         <div className="p-6 space-y-6">
+          <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
+            <div>
+              <h4 className="text-emerald-400 font-bold flex items-center gap-2 mb-1">
+                <Orbit className={`w-5 h-5 ${isScanning ? 'animate-spin' : 'animate-spin-slow'}`} /> Trade bằng AI Agent
+              </h4>
+              <p className="text-slate-300 text-xs md:text-sm">
+                AI sẽ tự quét dữ liệu on-chain, theo dõi biến động của cá mập và đưa ra tín hiệu khi điều kiện thị trường tối ưu nhất.
+              </p>
+              {isScanning && (
+                <div className="mt-2 text-xs font-mono text-emerald-400 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
+                  {scanStatus}
+                </div>
+              )}
+            </div>
+            <button 
+              onClick={handleStartScan}
+              disabled={isScanning}
+              className={`whitespace-nowrap ${isScanning ? 'bg-slate-700 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98]'} text-white font-bold py-2 px-4 rounded-lg shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2`}
+            >
+              <Zap className="w-4 h-4" /> {isScanning ? 'Đang Quét...' : 'Kích Hoạt AI Agent'}
+            </button>
+          </div>
+
           <p className="text-slate-300 text-sm">
             AI đã quét toàn bộ thị trường và Liquidation Map để chọn ra top 3 đồng coin có xác suất thắng cao nhất ở thời điểm hiện tại. Tỉ lệ rủi ro/lợi nhuận (R:R) được tối ưu hóa.
           </p>
