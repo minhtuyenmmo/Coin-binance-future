@@ -1,5 +1,5 @@
 import { useState, Fragment } from 'react';
-import { X, Crown, TrendingUp, TrendingDown, Target, Shield, Percent, Zap, Activity, ChevronDown, ChevronUp, Orbit } from 'lucide-react';
+import { X, Crown, TrendingUp, TrendingDown, Target, Shield, Percent, Zap, Activity, ChevronDown, ChevronUp, Orbit, Search } from 'lucide-react';
 import { SignalData } from '../lib/binance';
 
 interface Props {
@@ -81,6 +81,8 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
   const topSignals = aiAgentSignals || advancedSignals;
 
 
+  const [searchQuery, setSearchQuery] = useState('');
+
   const formatPrice = (val: number | string) => {
     const num = Number(val);
     if (num < 0.001) return num.toFixed(6);
@@ -89,14 +91,18 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
   };
 
   let tableSignals = [...signals]
-    .filter(s => !s.hasFakeVolume)
-    .sort((a, b) => {
+    .filter(s => !s.hasFakeVolume);
+    
+  if (searchQuery) {
+    tableSignals = tableSignals.filter(s => s.symbol.toLowerCase().includes(searchQuery.toLowerCase()));
+  } else {
+    tableSignals = tableSignals.sort((a, b) => {
       // Combined weighting for Liquidation + Volume
       const aWeight = a.winRate * 0.7 + (Math.random() * 5); 
       const bWeight = b.winRate * 0.7 + (Math.random() * 5);
       return bWeight - aWeight;
-    })
-    .slice(3, 23);
+    }).slice(3, 53); // Get top 50
+  }
 
   const btcIndex = tableSignals.findIndex(s => s.symbol === 'BTCUSDT');
   if (btcIndex > -1) {
@@ -301,10 +307,22 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
 
           {/* Bảng tín hiệu toàn thị trường cho các coin khác */}
           <div className="mt-8 border-t border-slate-800 pt-6">
-            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-emerald-400" />
-              Bảng Tín Hiệu Toàn Thị Trường (Liquidation + Volume)
-            </h4>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+              <h4 className="text-lg font-bold text-white flex items-center gap-2">
+                <Activity className="w-5 h-5 text-emerald-400" />
+                Bảng Tín Hiệu Toàn Thị Trường (Liquidation + Volume)
+              </h4>
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm coin... (VD: BTC)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 text-white pl-9 pr-3 py-2 rounded-lg text-sm focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 placeholder:text-slate-500"
+                />
+              </div>
+            </div>
             <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/50">
               <table className="w-full text-sm text-left text-slate-300">
                 <thead className="text-xs text-slate-400 uppercase bg-slate-950 border-b border-slate-800">

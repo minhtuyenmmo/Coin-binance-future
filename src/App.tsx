@@ -33,6 +33,8 @@ export default function App() {
   const [passwordInput, setPasswordInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isAIScanning, setIsAIScanning] = useState(false);
+  const [shouldUpdateContrarian, setShouldUpdateContrarian] = useState(true);
+  const [appContrarianSignals, setAppContrarianSignals] = useState<SignalData[]>([]);
 
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -108,15 +110,8 @@ export default function App() {
     return () => clearInterval(interval);
   }, [timeframe]);
 
-  const filteredSignals = signals.filter(s => {
-    if (filterWashTrade && s.hasFakeVolume) return false;
-    if (filterTopCoin && !TOP_50_COINS.includes(s.symbol.replace('USDT', ''))) return false;
-    if (searchQuery && !s.symbol.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    return true;
-  });
-  
-  const adjustedSignals = useMemo(() => {
-    return filteredSignals.map(signal => {
+  const allAdjustedSignals = useMemo(() => {
+    return signals.map(signal => {
       // Tính toán chung cho TẤT CẢ các phương pháp để có subWinRates
       let techBase = 50;
       let ictBase = 50;
@@ -186,7 +181,16 @@ export default function App() {
         subWinRates
       };
     });
-  }, [filteredSignals, tradeMode]);
+  }, [signals, tradeMode]);
+
+  const adjustedSignals = useMemo(() => {
+    return allAdjustedSignals.filter(s => {
+      if (filterWashTrade && s.hasFakeVolume) return false;
+      if (filterTopCoin && !TOP_50_COINS.includes(s.symbol.replace('USDT', ''))) return false;
+      if (searchQuery && !s.symbol.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      return true;
+    });
+  }, [allAdjustedSignals, filterWashTrade, filterTopCoin, searchQuery]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -205,19 +209,23 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAIScanning, adjustedSignals, loading, timeframe]);
 
-  const appContrarianSignals = useMemo(() => {
-    if (adjustedSignals.length === 0) return [];
-    return [...adjustedSignals]
-      .filter(s => !s.hasFakeVolume)
-      .sort((a, b) => {
-        const rsiA = a.indicators?.rsi || 50;
-        const rsiB = b.indicators?.rsi || 50;
-        const devA = (a.type === 'LONG' ? (50 - rsiA) : (rsiA - 50)) / 50 * 100;
-        const devB = (b.type === 'LONG' ? (50 - rsiB) : (rsiB - 50)) / 50 * 100;
-        return devB - devA;
-      })
-      .slice(0, 3);
-  }, [adjustedSignals]);
+  useEffect(() => {
+    if (shouldUpdateContrarian && adjustedSignals.length > 0) {
+      const contrarian = [...adjustedSignals]
+        .filter(s => !s.hasFakeVolume)
+        .sort((a, b) => {
+          const rsiA = a.indicators?.rsi || 50;
+          const rsiB = b.indicators?.rsi || 50;
+          const devA = (a.type === 'LONG' ? (50 - rsiA) : (rsiA - 50)) / 50 * 100;
+          const devB = (b.type === 'LONG' ? (50 - rsiB) : (rsiB - 50)) / 50 * 100;
+          return devB - devA;
+        })
+        .slice(0, 3);
+      setAppContrarianSignals(contrarian);
+      setShouldUpdateContrarian(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldUpdateContrarian, adjustedSignals]);
 
   const topSignals = [...adjustedSignals].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
   
@@ -335,7 +343,10 @@ export default function App() {
               </button>
             )}
             <button
-              onClick={() => loadData(timeframe)}
+              onClick={async () => {
+                await loadData(timeframe);
+                setShouldUpdateContrarian(true);
+              }}
               disabled={loading}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 border border-emerald-500 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 font-medium"
             >
@@ -662,7 +673,7 @@ export default function App() {
         {showAdvancedAuth && isAuthenticated && (
           <AdvancedTradeModal 
             onClose={() => setShowAdvancedAuth(false)}
-            signals={adjustedSignals}
+            signals={allAdjustedSignals}
           />
         )}
       </AnimatePresence>

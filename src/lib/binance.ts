@@ -69,11 +69,10 @@ export async function fetchTopFutures(timeframe: Timeframe = '1h'): Promise<Sign
     const data = await res.json();
     const now = Date.now();
     
-    // Filter top USDT pairs by volume, get 150 to ensure we have enough when filtering
+    // Filter all USDT pairs by volume
     const topPairs = data
       .filter((t: any) => t.symbol.endsWith('USDT') && !t.symbol.includes('_'))
-      .sort((a: any, b: any) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
-      .slice(0, 150);
+      .sort((a: any, b: any) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume));
 
     return topPairs.map((ticker: BinanceTicker) => generateSignalData(ticker, timeframe, now));
   } catch (error) {
