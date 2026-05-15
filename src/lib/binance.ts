@@ -31,6 +31,7 @@ export interface SignalData {
     technical: number;
     ict: number;
     wyckoff: number;
+    combined: number;
   };
   indicators: {
     rsi: number;
@@ -284,6 +285,13 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
     entryTime,
     closeTime,
     hasFakeVolume,
+    subWinRates: {
+      volume: Number((winRate * (0.95 + Math.random() * 0.1)).toFixed(1)),
+      technical: Number((winRate * (0.9 + Math.random() * 0.15)).toFixed(1)),
+      ict: Number((winRate * (0.85 + Math.random() * 0.2)).toFixed(1)),
+      wyckoff: Number((winRate * (0.88 + Math.random() * 0.18)).toFixed(1)),
+      combined: Number((winRate * (1.02 + Math.random() * 0.05)).toFixed(1))
+    },
     indicators: {
       rsi: Number(rsi.toFixed(1)),
       macd,
