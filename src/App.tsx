@@ -6,6 +6,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import AdvancedTradeModal from './components/AdvancedTradeModal';
+import AdminPanel from './components/AdminPanel';
+
+import { db } from './lib/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { v4 as uuidv4 } from 'uuid';
 
 type TradeMode = 'VOLUME' | 'TECHNICAL' | 'ICT' | 'WYCKOFF' | 'COMBINED';
 
@@ -23,6 +28,7 @@ export default function App() {
   const [updateStatus, setUpdateStatus] = useState('Update Tool');
   
   const [showAdvancedAuth, setShowAdvancedAuth] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -35,33 +41,38 @@ export default function App() {
     setErrorMsg('');
     
     try {
-      const response = await fetch('/api-verify-vip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ password: passwordInput })
-      });
-      
-      const text = await response.text();
-      
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        if (text.includes('<title>Cookie check</title>') || text.includes('Cookie check')) {
-          setErrorMsg('Vui lòng mở ứng dụng trong tab mới (biểu tượng mũi tên góc trên cùng bên phải) để đăng nhập.');
-          return;
-        }
-        throw new Error('Phản hồi từ máy chủ không hợp lệ.');
+      const passRef = doc(db, 'vip_passwords', passwordInput.trim());
+      const passSnap = await getDoc(passRef);
+
+      if (!passSnap.exists()) {
+        setErrorMsg('Mật khẩu không hợp lệ.');
+        setIsLoggingIn(false);
+        return;
       }
-      
-      if (data.success) {
+
+      const passData = passSnap.data();
+      let deviceId = localStorage.getItem('vip_device_id');
+      if (!deviceId) {
+        deviceId = uuidv4();
+        localStorage.setItem('vip_device_id', deviceId);
+      }
+
+      if (!passData.deviceId) {
+        // Claim the password for this device
+        try {
+          await updateDoc(passRef, { deviceId });
+          setIsAuthenticated(true);
+        } catch (err) {
+          setErrorMsg('Lỗi kích hoạt, có thể mật khẩu này vừa bị ai đó đăng nhập trước.');
+        }
+      } else if (passData.deviceId === deviceId) {
+        // Matches current device
         setIsAuthenticated(true);
       } else {
-        setErrorMsg(data.message || 'Mật khẩu không chính xác!');
+        setErrorMsg('Mật khẩu này đã được đăng nhập và khóa cứng với một thiết bị khác!');
       }
     } catch (err: any) {
-      setErrorMsg(`Lỗi kết nối đến máy chủ: ${err.message}`);
+      setErrorMsg(`Lỗi kết nối: ${err.message}`);
     } finally {
       setIsLoggingIn(false);
     }
@@ -593,6 +604,20 @@ export default function App() {
           />
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {showAdminPanel && (
+          <AdminPanel onClose={() => setShowAdminPanel(false)} />
+        )}
+      </AnimatePresence>
+
+      <button
+        onClick={() => setShowAdminPanel(true)}
+        className="fixed bottom-4 right-4 p-3 bg-slate-900 border border-slate-800 rounded-full text-slate-500 hover:text-emerald-400 hover:border-emerald-500/50 transition-all z-40 opacity-50 hover:opacity-100"
+        title="Admin Panel"
+      >
+        <Crown className="w-5 h-5" />
+      </button>
     </div>
   );
 }

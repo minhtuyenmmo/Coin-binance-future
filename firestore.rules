@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isAdmin() {
+      // Must use the exact verified email from request.auth
+      return request.auth != null 
+          && request.auth.token.email == "minhtuyenmmokg@gmail.com" 
+          && request.auth.token.email_verified == true;
+    }
+
+    // Helper to evaluate request.resource.data
+    function incoming() { return request.resource.data; }
+    // Helper to evaluate resource.data
+    function existing() { return resource.data; }
+
+    function isValidVipPassword(data) {
+      return data.keys().hasAll(['createdAt']) 
+        && data.createdAt is number
+        && (!('deviceId' in data) || data.deviceId == null || data.deviceId is string)
+        && (!('note' in data) || data.note == null || data.note is string);
+    }
+
+    match /vip_passwords/{passwordId} {
+      // Anyone can get a specific document to verify if a password exists and its deviceId
+      // To prevent brute force enumerate, list is not allowed.
+      allow get: if true;
+      allow list: if isAdmin();
+      
+      allow create: if isAdmin() && isValidVipPassword(incoming());
+      allow delete: if isAdmin();
+      
+      allow update: if (
+        isAdmin() && isValidVipPassword(incoming())
+      ) || (
+        // Regular user claiming the password
+        // They can only update if existing deviceId is not set or empty
+        (!('deviceId' in existing()) || existing().deviceId == null || existing().deviceId == '')
+        // And they only update the deviceId field
+        && incoming().diff(existing()).affectedKeys().hasOnly(['deviceId'])
+        && incoming().deviceId is string
+        && incoming().deviceId.size() > 0 
+        && incoming().deviceId.size() <= 128
+      );
+    }
+  }
+}

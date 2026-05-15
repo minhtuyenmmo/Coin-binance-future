@@ -1,0 +1,33 @@
+{
+  "entities": {
+    "VipPassword": {
+      "title": "VIP Password",
+      "description": "A valid VIP password, storing device ID to prevent sharing.",
+      "type": "object",
+      "properties": {
+        "createdAt": {
+          "type": "number",
+          "description": "Timestamp when this password was created."
+        },
+        "deviceId": {
+          "type": "string",
+          "description": "The unique device ID that claimed this password. Empty if unclaimed.",
+          "nullable": true
+        },
+        "note": {
+          "type": "string",
+          "description": "Admin note about who owns this password."
+        }
+      },
+      "required": ["createdAt"]
+    }
+  },
+  "firestore": {
+    "/vip_passwords/{passwordId}": {
+      "schema": {
+        "$ref": "#/entities/VipPassword"
+      },
+      "description": "Stores VIP passwords. Document ID is the password."
+    }
+  }
+}
