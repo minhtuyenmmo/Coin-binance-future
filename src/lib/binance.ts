@@ -157,47 +157,32 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
   else if (price < 1) decimals = 4;
   else if (price < 10) decimals = 3;
 
-  // Tính toán điểm vào lệnh (Fixed-Grid Entry Anchoring)
-  // Sử dụng High/Low của ngày để tạo một mức giá tham chiếu cố định trong 1 giờ.
-  // Điều này giúp entry không bị nhảy theo từng tick giá nhỏ.
-  const high = parseFloat(ticker.highPrice);
-  const low = parseFloat(ticker.lowPrice);
-  const range = high - low;
-  const midPrice = low + (range > 0 ? (range * (0.2 + (Math.abs(hash) % 60) / 100)) : (price * 0.05));
-  
-  // Xác định bước làm tròn lớn (0.25% - 1% tùy coin) để entry cực kỳ ổn định
-  const stabilityStep = price * 0.01; 
-  const p = Math.floor(Math.log10(stabilityStep > 0 ? stabilityStep : 1));
-  const f = stabilityStep / Math.pow(10, p);
+  // Tính toán điểm vào lệnh (Grid-based Entry Anchoring) ổn định áp dụng cho tất cả
+  // Giúp entry không thay đổi chớp nhoáng mà neo theo các mốc hỗ trợ/kháng cự quan trọng.
+  const approxStep = price * 0.005; // Khoảng 0.5% giá trị thị giá
+  const p = Math.floor(Math.log10(approxStep > 0 ? approxStep : 1));
+  const f = approxStep / Math.pow(10, p);
   let niceStep;
-  if (f < 2) niceStep = 1 * Math.pow(10, p);
-  else if (f < 5) niceStep = 2 * Math.pow(10, p);
-  else niceStep = 5 * Math.pow(10, p);
+  if (f < 1.5) niceStep = 1 * Math.pow(10, p);
+  else if (f < 3) niceStep = 2 * Math.pow(10, p);
+  else if (f < 7) niceStep = 5 * Math.pow(10, p);
+  else niceStep = 10 * Math.pow(10, p);
 
-  // Gắn giá tham chiếu cố định dựa trên hashSeed (thay đổi mỗi giờ)
-  const anchoredBase = Math.round(midPrice / niceStep) * niceStep;
-  
-  // Nếu giá hiện tại lệch quá xa ( > 3%) so với anchoredBase, ta mới dời anchor theo trend
-  const deviation = Math.abs(price - anchoredBase) / anchoredBase;
-  const finalAnchor = deviation > 0.03 ? Math.round(price / niceStep) * niceStep : anchoredBase;
-
-  const gridOffset = (Math.abs(hash) % 2) + 1; 
+  // Gắn giá về mốc tròn gần nhất dựa trên niceStep
+  const anchoredPrice = Math.round(price / niceStep) * niceStep;
+  const gridOffset = (Math.abs(hash) % 3) + 1; // 1 đến 3 step
 
   let optimalEntryNum = isLong 
-    ? finalAnchor - (niceStep * gridOffset)
-    : finalAnchor + (niceStep * gridOffset);
+    ? anchoredPrice - (niceStep * gridOffset)
+    : anchoredPrice + (niceStep * gridOffset);
     
   if (optimalEntryNum <= 0) optimalEntryNum = price * 0.99;
 
   const entry = optimalEntryNum;
 
-  // Tính độ biến động giá thực tế (High - Low) / Low
-  const actualVolatility = low > 0 ? (high - low) / low : 0;
-
   // Điều chỉnh TP/SL theo độ biến động (volatility) dựa trên khung thời gian
-  // Sử dụng actualVolatility (High-Low) để ổn định hơn so với change24h
-  const stableVolatility = Math.max(actualVolatility, 0.02) * tfMultiplier;
-  const volatility = Math.min(stableVolatility, 0.15); 
+  const baseVolatility = Math.max(Math.abs(change) / 100, 0.01) * tfMultiplier; 
+  const volatility = Math.min(baseVolatility, 0.1); 
 
   // R/R Ratio (Risk/Reward) ~ 1:2
   const profitMargin = volatility * 1.5;
@@ -233,10 +218,15 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
   const closeTime = entryTime + closeOffsetMs;
 
   const count = ticker.count;
+  const high = parseFloat(ticker.highPrice);
+  const low = parseFloat(ticker.lowPrice);
   
   // Tính tỷ lệ trung bình mỗi giao dịch (Quote Volume / Count)
   const avgTradeSize = count > 0 ? quoteVolume / count : 0;
   
+  // Tính độ biến động giá thực tế (High - Low) / Low
+  const actualVolatility = low > 0 ? (high - low) / low : 0;
+
   // Phát hiện Volume Ảo (Wash Trading / Spoofing) dựa trên phân tích order và biến động
   let hasFakeVolume = false;
   

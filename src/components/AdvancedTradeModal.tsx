@@ -159,10 +159,15 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
         }
       }
 
-      const entry = match.indicators?.optimalEntry || match.price.toString();
+      const entry = formatPrice(match.indicators?.optimalEntry || match.price);
         
-      const sl = match.sl;
-      const tp = match.tp;
+      const sl = action === 'LONG' 
+        ? formatPrice(Number(entry) * (1 - volatility * 0.8))
+        : formatPrice(Number(entry) * (1 + volatility * 0.8));
+        
+      const tp = action === 'LONG'
+        ? formatPrice(Number(entry) * (1 + volatility * 2.5))
+        : formatPrice(Number(entry) * (1 - volatility * 2.5));
 
       setConsultResult({
         ...match,
@@ -171,7 +176,7 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
         consultEntry: entry,
         consultSL: sl,
         consultTP: tp,
-        consultWinRate: Math.min(99.2, consultWinRate + 2 + (Math.abs(match.winRate % 1) * 2)).toFixed(1)
+        consultWinRate: Math.min(99.2, consultWinRate + 2 + (Math.random() * 2)).toFixed(1)
       });
       setIsConsulting(false);
     }, 1500);
@@ -255,12 +260,22 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
     const isLong = signal.type === 'LONG';
     const rsi = signal.indicators?.rsi || 50;
     
-    const entry = signal.indicators?.optimalEntry || signal.entry;
-    const stopLoss = signal.sl;
-    const takeProfit = signal.tp;
-    const leverage = signal.leverage;
+    // Tính toán Entry/Stoploss/TakeProfit thông minh
+    const price = signal.price;
+    const volatility = 0.02 + ((rsi > 70 ? rsi - 70 : (rsi < 30 ? 30 - rsi : 5)) / 100);
     
-    const winRateBoosted = Math.min(99.2, signal.winRate + 2 + (Math.abs(signal.price % 1) * 2));
+    const entry = formatPrice(signal.indicators?.optimalEntry || price);
+    const stopLoss = isLong 
+      ? formatPrice(Number(entry) * (1 - volatility * 0.8))
+      : formatPrice(Number(entry) * (1 + volatility * 0.8));
+      
+    const takeProfit = isLong
+      ? formatPrice(Number(entry) * (1 + volatility * 2.5))
+      : formatPrice(Number(entry) * (1 - volatility * 2.5));
+      
+    const leverage = Math.min(20, Math.max(5, Math.floor(10 / volatility)));
+    
+    const winRateBoosted = Math.min(99.2, signal.winRate + 2 + (Math.random() * 2));
     const dev = (isLong ? (50 - rsi) : (rsi - 50)) / 50 * 100;
 
     return (
@@ -513,11 +528,22 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
                 <tbody className="divide-y divide-slate-800/50">
                   {tableSignals.map((signal) => {
                     const isLong = signal.type === 'LONG';
-                    const entry = signal.indicators?.optimalEntry || signal.entry;
-                    const stopLoss = signal.sl;
-                    const takeProfit = signal.tp;
-                    const leverage = signal.leverage;
-                    const winRateBoosted = Math.min(99.2, signal.winRate + 2 + (Math.abs(signal.price % 1) * 2));
+                    const rsi = signal.indicators?.rsi || 50;
+                    
+                    const price = signal.price;
+                    const volatility = 0.02 + ((rsi > 70 ? rsi - 70 : (rsi < 30 ? 30 - rsi : 5)) / 100);
+                    
+                    const entry = formatPrice(signal.indicators?.optimalEntry || price);
+                    const stopLoss = isLong 
+                      ? formatPrice(Number(entry) * (1 - volatility * 0.8))
+                      : formatPrice(Number(entry) * (1 + volatility * 0.8));
+                      
+                    const takeProfit = isLong
+                      ? formatPrice(Number(entry) * (1 + volatility * 2.5))
+                      : formatPrice(Number(entry) * (1 - volatility * 2.5));
+                      
+                    const leverage = Math.min(20, Math.max(5, Math.floor(10 / volatility)));
+                    const winRateBoosted = Math.min(99.2, signal.winRate + 2 + (Math.random() * 2));
 
                     const isExpanded = expandedSymbol === signal.symbol;
 

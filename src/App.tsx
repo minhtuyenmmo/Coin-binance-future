@@ -864,7 +864,7 @@ function TopCard({ signal, rank, tradeMode, isContrarian }: { signal: SignalData
             </div>
             <span className="text-[10px] text-slate-500 whitespace-nowrap">{format(signal.entryTime, 'dd/MM HH:mm')}</span>
           </div>
-          <div className="font-mono text-sm text-slate-200">${signal.indicators?.optimalEntry || signal.entry}</div>
+          <div className="font-mono text-sm text-slate-200">${tradeMode !== 'VOLUME' && signal.indicators ? signal.indicators.optimalEntry : signal.entry}</div>
         </div>
         <div className="bg-slate-950/50 p-3 rounded-xl border border-slate-800/80">
           <div className="flex items-center justify-between mb-1">
@@ -874,7 +874,7 @@ function TopCard({ signal, rank, tradeMode, isContrarian }: { signal: SignalData
             </div>
           </div>
           <div className="flex justify-between items-baseline">
-            <div className={cn("font-mono text-sm", "text-emerald-400")}>${signal.tp}</div>
+            <div className={cn("font-mono text-sm", isLong ? "text-emerald-400" : "text-emerald-400")}>${signal.tp}</div>
             <span className="text-[10px] text-slate-500 whitespace-nowrap">{format(signal.closeTime, 'dd/MM HH:mm')}</span>
           </div>
         </div>
@@ -958,7 +958,7 @@ function TableRow({ signal, tradeMode, isOptimal, index }: { signal: SignalData;
       <td className="sm:px-6 sm:py-4 font-mono text-slate-300 flex justify-between sm:table-cell mt-1 sm:mt-0">
         <span className="sm:hidden text-slate-500 text-sm">Entry:</span>
         <div className="flex flex-col sm:items-start items-end">
-          <span>${signal.indicators?.optimalEntry || signal.entry}</span>
+          <span>${tradeMode !== 'VOLUME' && signal.indicators ? signal.indicators.optimalEntry : signal.entry}</span>
           <span className="text-[10px] text-slate-500 font-sans tracking-tight">{format(signal.entryTime, 'dd/MM HH:mm')}</span>
         </div>
       </td>
