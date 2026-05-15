@@ -176,7 +176,7 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
         consultEntry: entry,
         consultSL: sl,
         consultTP: tp,
-        consultWinRate: Math.min(99.2, consultWinRate + 2 + (Math.random() * 2)).toFixed(1)
+        consultWinRate: Math.min(99.2, consultWinRate + 2 + (Math.abs(match.winRate % 1) * 2)).toFixed(1)
       });
       setIsConsulting(false);
     }, 1500);
@@ -275,7 +275,7 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
       
     const leverage = Math.min(20, Math.max(5, Math.floor(10 / volatility)));
     
-    const winRateBoosted = Math.min(99.2, signal.winRate + 2 + (Math.random() * 2));
+    const winRateBoosted = Math.min(99.2, signal.winRate + 2 + (Math.abs(signal.price % 1) * 2));
     const dev = (isLong ? (50 - rsi) : (rsi - 50)) / 50 * 100;
 
     return (
@@ -543,7 +543,7 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
                       : formatPrice(Number(entry) * (1 - volatility * 2.5));
                       
                     const leverage = Math.min(20, Math.max(5, Math.floor(10 / volatility)));
-                    const winRateBoosted = Math.min(99.2, signal.winRate + 2 + (Math.random() * 2));
+                    const winRateBoosted = Math.min(99.2, signal.winRate + 2 + (Math.abs(signal.price % 1) * 2));
 
                     const isExpanded = expandedSymbol === signal.symbol;
 
