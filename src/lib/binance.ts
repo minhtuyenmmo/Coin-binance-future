@@ -191,9 +191,13 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
 
   const entry = optimalEntryNum;
 
+  // Tính độ biến động giá thực tế (High - Low) / Low
+  const actualVolatility = low > 0 ? (high - low) / low : 0;
+
   // Điều chỉnh TP/SL theo độ biến động (volatility) dựa trên khung thời gian
-  const baseVolatility = Math.max(Math.abs(change) / 100, 0.01) * tfMultiplier; 
-  const volatility = Math.min(baseVolatility, 0.1); 
+  // Sử dụng actualVolatility (High-Low) để ổn định hơn so với change24h
+  const stableVolatility = Math.max(actualVolatility, 0.02) * tfMultiplier;
+  const volatility = Math.min(stableVolatility, 0.15); 
 
   // R/R Ratio (Risk/Reward) ~ 1:2
   const profitMargin = volatility * 1.5;
@@ -233,9 +237,6 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
   // Tính tỷ lệ trung bình mỗi giao dịch (Quote Volume / Count)
   const avgTradeSize = count > 0 ? quoteVolume / count : 0;
   
-  // Tính độ biến động giá thực tế (High - Low) / Low
-  const actualVolatility = low > 0 ? (high - low) / low : 0;
-
   // Phát hiện Volume Ảo (Wash Trading / Spoofing) dựa trên phân tích order và biến động
   let hasFakeVolume = false;
   
