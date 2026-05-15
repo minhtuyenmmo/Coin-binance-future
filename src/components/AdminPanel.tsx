@@ -46,9 +46,15 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
     provider.setCustomParameters({ prompt: 'select_account' });
     try {
       await signInWithPopup(auth, provider);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Đăng nhập thất bại.');
+      if (e.code === 'auth/unauthorized-domain') {
+        alert('Lỗi: Tên miền chưa được cấp quyền. Vui lòng thêm tên miền này vào danh sách Authorized Domains trong Firebase Console -> Authentication -> Settings -> Authorized domains.');
+      } else if (e.code === 'auth/popup-closed-by-user') {
+        alert('Đăng nhập bị hủy.');
+      } else {
+        alert(`Đăng nhập thất bại: ${e.message}\nThử mở web ở Tab mới (mũi tên góc trên bên phải) nếu bạn đang xem trong khung preview.`);
+      }
     }
   };
 
