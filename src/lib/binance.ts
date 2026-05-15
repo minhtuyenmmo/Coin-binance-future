@@ -89,22 +89,22 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
 
   // Timeframe modifiers
   let tfMultiplier = 1;
-  let hashSeed = 1;
+  let hashSeed = 1 + Math.floor(now / 15000); // thay đổi nhẹ mỗi 15s để scanner có thể tìm ra
   switch (timeframe) {
-    case '5m': tfMultiplier = 0.1; hashSeed = 5; break;
-    case '15m': tfMultiplier = 0.2; hashSeed = 15; break;
-    case '30m': tfMultiplier = 0.3; hashSeed = 30; break;
-    case '1h': tfMultiplier = 0.5; hashSeed = 60; break;
-    case '2h': tfMultiplier = 0.8; hashSeed = 120; break;
-    case '4h': tfMultiplier = 1.2; hashSeed = 240; break;
-    case '1d': tfMultiplier = 3.0; hashSeed = 1440; break;
-    case '2d': tfMultiplier = 4.5; hashSeed = 2880; break;
-    case '1w': tfMultiplier = 8.0; hashSeed = 10080; break;
-    case '2w': tfMultiplier = 12.0; hashSeed = 20160; break;
-    case '1M': tfMultiplier = 18.0; hashSeed = 43200; break;
-    case '3M': tfMultiplier = 35.0; hashSeed = 129600; break;
-    case '6M': tfMultiplier = 60.0; hashSeed = 259200; break;
-    case '1y': tfMultiplier = 100.0; hashSeed = 518400; break;
+    case '5m': tfMultiplier = 0.1; hashSeed += 5; break;
+    case '15m': tfMultiplier = 0.2; hashSeed += 15; break;
+    case '30m': tfMultiplier = 0.3; hashSeed += 30; break;
+    case '1h': tfMultiplier = 0.5; hashSeed += 60; break;
+    case '2h': tfMultiplier = 0.8; hashSeed += 120; break;
+    case '4h': tfMultiplier = 1.2; hashSeed += 240; break;
+    case '1d': tfMultiplier = 3.0; hashSeed += 1440; break;
+    case '2d': tfMultiplier = 4.5; hashSeed += 2880; break;
+    case '1w': tfMultiplier = 8.0; hashSeed += 10080; break;
+    case '2w': tfMultiplier = 12.0; hashSeed += 20160; break;
+    case '1M': tfMultiplier = 18.0; hashSeed += 43200; break;
+    case '3M': tfMultiplier = 35.0; hashSeed += 129600; break;
+    case '6M': tfMultiplier = 60.0; hashSeed += 259200; break;
+    case '1y': tfMultiplier = 100.0; hashSeed += 518400; break;
   }
 
   // Tạo hash từ symbol để giữ tín hiệu nhất quán trên giao diện demo
@@ -214,15 +214,15 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
   
   // Tính tỉ lệ thắng giả lập. Các coin có volume lớn thường có model mượt hơn
   const pseudoRandom = Math.abs(Math.sin(hash)) * 100;
-  let winRate = 55 + (pseudoRandom % 30); 
+  let winRate = 55 + (pseudoRandom % 35); 
   
   if (!hasFakeVolume) {
      const momentum = actualVolatility > 0 ? Math.abs(change/100) / actualVolatility : 0; 
      // Nếu change gần bằng actualVolatility -> Nến thân dài (Trend rõ) -> Rate cao hơn
      if (momentum > 0.7) {
-       winRate += 7;
+       winRate += 9;
      } else if (momentum > 0.5) {
-       winRate += 4;
+       winRate += 5;
      }
   } else {
      // Phạt rate nếu có nghi ngờ thao túng
@@ -233,8 +233,9 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
   if (!hasFakeVolume && count > 100000 && avgTradeSize < 10000) {
     winRate += 3;
   }
-
-  winRate = Math.min(Math.max(winRate, 25), 96); // Clamp max 96% and min 25%
+  
+  // Đảm bảo có thể sinh ra max rate nhưng không qua 98.5
+  if (winRate > 98.5) winRate = 98.5;
 
   // Technical Analysis Simulation
   const rsiSeed = Math.abs(Math.cos(hash)) * 100;

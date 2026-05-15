@@ -12,6 +12,22 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState('');
   const [aiAgentSignals, setAiAgentSignals] = useState<SignalData[] | null>(null);
+  const [aiContrarianSignals, setAiContrarianSignals] = useState<SignalData[]>([]);
+
+  // Initialize contrarian signals once on mount
+  useState(() => {
+    const initialContrarian = [...signals]
+      .filter(s => !s.hasFakeVolume)
+      .sort((a, b) => {
+        const rsiA = a.indicators?.rsi || 50;
+        const rsiB = b.indicators?.rsi || 50;
+        const devA = a.type === 'LONG' ? (50 - rsiA) : (rsiA - 50);
+        const devB = b.type === 'LONG' ? (50 - rsiB) : (rsiB - 50);
+        return devB - devA;
+      })
+      .slice(0, 3);
+    setAiContrarianSignals(initialContrarian);
+  });
 
   const handleStartScan = () => {
     setIsScanning(true);
@@ -22,13 +38,27 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
     setTimeout(() => setScanStatus('Đang lọc tín hiệu tốt nhất...'), 4000);
     setTimeout(() => {
       // Simulate AI Agent finding different "Hidden Gems" or Whale targets
-      // We'll pick signals that are NOT necessarily top volume but have high volatility or specific pattern
       const discovered = [...signals]
         .filter(s => !s.hasFakeVolume)
-        .sort(() => Math.random() - 0.5) // Random discovery simulation
+        .sort(() => Math.random() - 0.5)
         .slice(0, 3);
       
       setAiAgentSignals(discovered);
+
+      // Update contrarian signals when AI Agent scans
+      const discoveredContrarian = [...signals]
+        .filter(s => !s.hasFakeVolume)
+        .sort((a, b) => {
+          const rsiA = a.indicators?.rsi || 50;
+          const rsiB = b.indicators?.rsi || 50;
+          // Độ lệch (xa nhất) so với tín hiệu gốc. LONG -> RSI thấp là ngược, SHORT -> RSI cao là ngược.
+          const devA = (a.type === 'LONG' ? (50 - rsiA) : (rsiA - 50)) / 50 * 100;
+          const devB = (b.type === 'LONG' ? (50 - rsiB) : (rsiB - 50)) / 50 * 100;
+          return devB - devA;
+        })
+        .slice(0, 3);
+      setAiContrarianSignals(discoveredContrarian);
+
       setScanStatus('Hoàn tất! Đã tìm thấy 3 mục tiêu tối ưu.');
       setTimeout(() => {
         setIsScanning(false);
@@ -38,7 +68,6 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
   };
 
   // Algorithm for Advanced Trade (Liquidation Focus)
-  // We'll prioritize signals where liquidation potential is high
   const advancedSignals = [...signals]
     .filter(s => !s.hasFakeVolume)
     .sort((a, b) => {
@@ -50,6 +79,7 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
 
   // Use AI Agent signals if they exist, otherwise use Advanced Signals
   const topSignals = aiAgentSignals || advancedSignals;
+
 
   const formatPrice = (val: number | string) => {
     const num = Number(val);
@@ -127,6 +157,87 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
     );
   };
 
+  const renderSignalCard = (signal: SignalData, idx: number, isContrarian: boolean = false) => {
+    const isLong = signal.type === 'LONG';
+    const rsi = signal.indicators?.rsi || 50;
+    
+    // Tính toán Entry/Stoploss/TakeProfit thông minh
+    const price = signal.price;
+    const volatility = 0.02 + ((rsi > 70 ? rsi - 70 : (rsi < 30 ? 30 - rsi : 5)) / 100);
+    
+    const entry = formatPrice(signal.indicators?.optimalEntry || price);
+    const stopLoss = isLong 
+      ? formatPrice(Number(entry) * (1 - volatility * 0.8))
+      : formatPrice(Number(entry) * (1 + volatility * 0.8));
+      
+    const takeProfit = isLong
+      ? formatPrice(Number(entry) * (1 + volatility * 2.5))
+      : formatPrice(Number(entry) * (1 - volatility * 2.5));
+      
+    const leverage = Math.min(20, Math.max(5, Math.floor(10 / volatility)));
+    
+    const winRateBoosted = Math.min(99.2, signal.winRate + 2 + (Math.random() * 2));
+    const dev = (isLong ? (50 - rsi) : (rsi - 50)) / 50 * 100;
+
+    return (
+      <div key={`card-${signal.symbol}`} className={`bg-slate-950 border ${isContrarian ? 'border-sky-500/30 hover:border-sky-500/60' : 'border-slate-800 hover:border-amber-500/30'} rounded-xl p-5 relative overflow-hidden group transition-colors`}>
+        <div className="absolute top-0 right-0 p-3 opacity-10">
+          <Crown className={`w-20 h-20 ${isContrarian ? 'text-sky-500' : 'text-amber-500'}`} />
+        </div>
+        
+        <div className="flex items-center justify-between mb-4 relative z-10">
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-bold text-white">{signal.symbol}</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-bold ${isLong ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+              {isLong ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              {signal.type}
+            </span>
+            {isContrarian && (
+              <span className="text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-bold bg-sky-500/20 text-sky-400" title="Độ lệch so với xu hướng chính">
+                Ngược {Math.max(10, dev).toFixed(0)}%
+              </span>
+            )}
+          </div>
+          <div className={`text-2xl font-black drop-shadow-md ${isContrarian ? 'text-sky-400' : 'text-amber-400'}`}>
+            #{idx + 1}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 relative z-10">
+          <div className="bg-slate-900 rounded-lg p-3 border border-slate-800">
+            <div className="text-[10px] text-slate-500 mb-1 flex items-center gap-1"><Target className="w-3 h-3"/> Entry (Vào lệnh)</div>
+            <div className="font-mono text-sm text-white font-bold">{entry}</div>
+          </div>
+          
+          <div className="bg-slate-900 rounded-lg p-3 border border-slate-800">
+            <div className="text-[10px] text-slate-500 mb-1 flex items-center gap-1"><Zap className="w-3 h-3"/> Đòn bẩy (Leverage)</div>
+            <div className="font-mono text-sm text-white font-bold">x{leverage} <span className="text-[10px] text-slate-400 font-sans">Cross</span></div>
+          </div>
+
+          <div className="bg-red-500/5 rounded-lg p-3 border border-red-500/10">
+            <div className="text-[10px] text-red-400/80 mb-1 flex items-center gap-1"><Shield className="w-3 h-3"/> Stop Loss</div>
+            <div className="font-mono text-sm text-red-400 font-bold">{stopLoss}</div>
+          </div>
+
+          <div className="bg-emerald-500/5 rounded-lg p-3 border border-emerald-500/10">
+            <div className="text-[10px] text-emerald-400/80 mb-1 flex items-center gap-1"><Target className="w-3 h-3"/> Take Profit</div>
+            <div className="font-mono text-sm text-emerald-400 font-bold">{takeProfit}</div>
+          </div>
+        </div>
+        
+        <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-4 relative z-10">
+          <span className="text-xs text-slate-400 flex items-center gap-1">
+            <Percent className="w-3.5 h-3.5" />
+            Win Rate AI:
+          </span>
+          <span className="text-lg font-black text-emerald-400">{winRateBoosted.toFixed(1)}%</span>
+        </div>
+
+        {renderLiquidationMap(signal)}
+      </div>
+    );
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
       <div className="bg-slate-900 border border-amber-500/30 rounded-2xl w-full max-w-4xl shadow-2xl relative my-auto">
@@ -170,80 +281,22 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
           </p>
           
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {topSignals.map((signal, idx) => {
-              const isLong = signal.type === 'LONG';
-              const rsi = signal.indicators?.rsi || 50;
-              
-              // Tính toán Entry/Stoploss/TakeProfit thông minh
-              const price = signal.price;
-              const volatility = 0.02 + ((rsi > 70 ? rsi - 70 : (rsi < 30 ? 30 - rsi : 5)) / 100);
-              
-              const entry = formatPrice(signal.indicators?.optimalEntry || price);
-              const stopLoss = isLong 
-                ? formatPrice(Number(entry) * (1 - volatility * 0.8))
-                : formatPrice(Number(entry) * (1 + volatility * 0.8));
-                
-              const takeProfit = isLong
-                ? formatPrice(Number(entry) * (1 + volatility * 2.5))
-                : formatPrice(Number(entry) * (1 - volatility * 2.5));
-                
-              const leverage = Math.min(20, Math.max(5, Math.floor(10 / volatility)));
-              
-              const winRateBoosted = Math.min(99.2, signal.winRate + 2 + (Math.random() * 2));
+            {topSignals.map((signal, idx) => renderSignalCard(signal, idx, false))}
+          </div>
 
-              return (
-                <div key={signal.symbol} className="bg-slate-950 border border-slate-800 rounded-xl p-5 relative overflow-hidden group hover:border-amber-500/30 transition-colors">
-                  <div className="absolute top-0 right-0 p-3 opacity-10">
-                    <Crown className="w-20 h-20 text-amber-500" />
-                  </div>
-                  
-                  <div className="flex items-center justify-between mb-4 relative z-10">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-white">{signal.symbol}</span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-bold ${isLong ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
-                        {isLong ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                        {signal.type}
-                      </span>
-                    </div>
-                    <div className="text-2xl font-black text-amber-400 drop-shadow-md">
-                      #{idx + 1}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 relative z-10">
-                    <div className="bg-slate-900 rounded-lg p-3 border border-slate-800">
-                      <div className="text-[10px] text-slate-500 mb-1 flex items-center gap-1"><Target className="w-3 h-3"/> Entry (Vào lệnh)</div>
-                      <div className="font-mono text-sm text-white font-bold">{entry}</div>
-                    </div>
-                    
-                    <div className="bg-slate-900 rounded-lg p-3 border border-slate-800">
-                      <div className="text-[10px] text-slate-500 mb-1 flex items-center gap-1"><Zap className="w-3 h-3"/> Đòn bẩy (Leverage)</div>
-                      <div className="font-mono text-sm text-white font-bold">x{leverage} <span className="text-[10px] text-slate-400 font-sans">Cross</span></div>
-                    </div>
-
-                    <div className="bg-red-500/5 rounded-lg p-3 border border-red-500/10">
-                      <div className="text-[10px] text-red-400/80 mb-1 flex items-center gap-1"><Shield className="w-3 h-3"/> Stop Loss</div>
-                      <div className="font-mono text-sm text-red-400 font-bold">{stopLoss}</div>
-                    </div>
-
-                    <div className="bg-emerald-500/5 rounded-lg p-3 border border-emerald-500/10">
-                      <div className="text-[10px] text-emerald-400/80 mb-1 flex items-center gap-1"><Target className="w-3 h-3"/> Take Profit</div>
-                      <div className="font-mono text-sm text-emerald-400 font-bold">{takeProfit}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-4 relative z-10">
-                    <span className="text-xs text-slate-400 flex items-center gap-1">
-                      <Percent className="w-3.5 h-3.5" />
-                      Win Rate AI:
-                    </span>
-                    <span className="text-lg font-black text-emerald-400">{winRateBoosted.toFixed(1)}%</span>
-                  </div>
-
-                  {renderLiquidationMap(signal)}
-                </div>
-              );
-            })}
+          <div className="mt-8 border-t border-slate-800 pt-6">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingDown className="w-5 h-5 text-sky-400" />
+              <h4 className="text-lg font-bold text-white">
+                Top 3 Kèo Ngược Chỉ Báo - <span className="text-sky-400">Ưu Tiên Bắt Đỉnh/Đáy</span>
+              </h4>
+            </div>
+            <p className="text-slate-300 text-sm mb-4">
+              Các đồng coin đang chạy ngược với tín hiệu gốc của AI (Tín hiệu mua nhưng giá đang điều chỉnh giảm, hoặc bán nhưng giá tăng nhẹ). Đây là các kèo lý tưởng để bắt entry với tỉ lệ lãi cực lớn.
+            </p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {aiContrarianSignals.map((signal, idx) => renderSignalCard(signal, idx, true))}
+            </div>
           </div>
 
           {/* Bảng tín hiệu toàn thị trường cho các coin khác */}

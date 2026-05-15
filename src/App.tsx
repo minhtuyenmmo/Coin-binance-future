@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, Zap, ChevronDown, ChevronUp, Clock, Star, Coins, Github, Loader2, Crown, Activity, Compass, Layers, Sparkles, Search } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, TrendingDown, Zap, ChevronDown, ChevronUp, Clock, Star, Coins, Github, Loader2, Crown, Activity, Compass, Layers, Sparkles, Search, Bot } from 'lucide-react';
 import { Timeframe, fetchTopFutures, SignalData, TOP_50_COINS } from './lib/binance';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -32,6 +32,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [isAIScanning, setIsAIScanning] = useState(false);
 
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -187,6 +188,37 @@ export default function App() {
     });
   }, [filteredSignals, tradeMode]);
 
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isAIScanning && !loading) {
+      if (adjustedSignals.length > 0 && adjustedSignals.some(s => s.winRate >= 95)) {
+        setIsAIScanning(false);
+        // Play a sound or show a simple alert/notification
+        // alert('Đã tìm thấy coin tiềm năng có Win Rate >= 95%!');
+      } else {
+        timer = setTimeout(() => {
+          loadData(timeframe);
+        }, 1500);
+      }
+    }
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAIScanning, adjustedSignals, loading, timeframe]);
+
+  const appContrarianSignals = useMemo(() => {
+    if (adjustedSignals.length === 0) return [];
+    return [...adjustedSignals]
+      .filter(s => !s.hasFakeVolume)
+      .sort((a, b) => {
+        const rsiA = a.indicators?.rsi || 50;
+        const rsiB = b.indicators?.rsi || 50;
+        const devA = (a.type === 'LONG' ? (50 - rsiA) : (rsiA - 50)) / 50 * 100;
+        const devB = (b.type === 'LONG' ? (50 - rsiB) : (rsiB - 50)) / 50 * 100;
+        return devB - devA;
+      })
+      .slice(0, 3);
+  }, [adjustedSignals]);
+
   const topSignals = [...adjustedSignals].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
   
   const optimalSignals = useMemo(() => {
@@ -205,13 +237,6 @@ export default function App() {
     const sorted = [...adjustedSignals].sort((a, b) => {
       return winRateSort === 'desc' ? b.winRate - a.winRate : a.winRate - b.winRate;
     });
-    
-    // Đưa BTC lên đầu bảng
-    const btcIndex = sorted.findIndex(s => s.symbol === 'BTCUSDT');
-    if (btcIndex > -1) {
-      const btcSignal = sorted.splice(btcIndex, 1)[0];
-      sorted.unshift(btcSignal);
-    }
     
     return sorted;
   })();
@@ -294,6 +319,20 @@ export default function App() {
               <span className="text-slate-400 hidden lg:inline-block">
                 Cập nhật lúc: {lastUpdated.toLocaleTimeString('vi-VN')}
               </span>
+            )}
+            {tradeMode !== 'VOLUME' && (
+              <button
+                 onClick={() => setIsAIScanning(!isAIScanning)}
+                 className={cn(
+                   "flex items-center gap-2 px-3 py-1.5 rounded-lg border font-medium transition-colors whitespace-nowrap",
+                   isAIScanning 
+                     ? "bg-amber-500/20 border-amber-500 text-amber-400 animate-pulse" 
+                     : "bg-slate-900 border-slate-700 text-amber-500 hover:bg-slate-800"
+                 )}
+              >
+                <Bot className={cn("w-4 h-4", isAIScanning && "animate-bounce")} />
+                <span className="hidden sm:inline-block">{isAIScanning ? "Đang quét AI..." : "Kích hoạt AI agent"}</span>
+              </button>
             )}
             <button
               onClick={() => loadData(timeframe)}
@@ -424,10 +463,33 @@ export default function App() {
             
             <div className="flex justify-start">
               {optimalSignals.map((signal) => (
-                <div key={signal.symbol} className="w-full max-w-md">
+                <div key={`opt-${signal.symbol}`} className="w-full max-w-md">
                   <OptimalCard signal={signal} tradeMode={tradeMode} />
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Kèo Ngược Chỉ Báo (Volume Mode Only) */}
+        {!loading && tradeMode === 'VOLUME' && appContrarianSignals.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="bg-sky-500/10 p-1.5 rounded-lg">
+                <TrendingDown className="w-5 h-5 text-sky-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white tracking-tight">Top 3 Kèo Ngược Chỉ Báo</h2>
+                <p className="text-sm text-slate-400">Các đồng coin có giá đi ngược % xa nhất so với tín hiệu gốc.</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <AnimatePresence>
+                {appContrarianSignals.map((signal, index) => (
+                  <TopCard key={`con-${signal.symbol}`} signal={signal} rank={index + 1} tradeMode={tradeMode} isContrarian={true} />
+                ))}
+              </AnimatePresence>
             </div>
           </div>
         )}
@@ -692,8 +754,9 @@ function OptimalCard({ signal, tradeMode }: { signal: SignalData; tradeMode: Tra
   );
 }
 
-function TopCard({ signal, rank, tradeMode }: { signal: SignalData; rank: number; tradeMode: TradeMode }) {
+function TopCard({ signal, rank, tradeMode, isContrarian }: { signal: SignalData; rank: number; tradeMode: TradeMode; isContrarian?: boolean }) {
   const isLong = signal.type === 'LONG';
+  const dev = signal.indicators?.rsi ? (isLong ? (50 - signal.indicators.rsi) : (signal.indicators.rsi - 50)) / 50 * 100 : 0;
 
   return (
     <motion.div
@@ -701,18 +764,21 @@ function TopCard({ signal, rank, tradeMode }: { signal: SignalData; rank: number
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3, delay: rank * 0.1 }}
-      className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40 p-6 flex flex-col hover:border-slate-700 transition-colors group"
+      className={cn("relative overflow-hidden rounded-2xl border bg-slate-900/40 p-6 flex flex-col transition-colors group", 
+        isContrarian ? "border-sky-500/30 hover:border-sky-500/60" : "border-slate-800 hover:border-slate-700")}
     >
       {/* Background Glow */}
       <div className={cn(
         "absolute -top-24 -right-24 w-48 h-48 rounded-full blur-3xl opacity-20 group-hover:opacity-30 transition-opacity",
-        isLong ? "bg-emerald-500" : "bg-rose-500"
+        isContrarian ? "bg-sky-500" : (isLong ? "bg-emerald-500" : "bg-rose-500")
       )} />
 
-      <div className="flex justify-between items-start mb-4">
+      <div className="flex justify-between items-start mb-4 relative z-10">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+            <span className={cn("text-xs font-bold px-2 py-0.5 rounded", 
+              isContrarian ? "bg-sky-500/20 text-sky-400" : "bg-slate-800 text-slate-300"
+            )}>
               #{rank}
             </span>
             <h3 className="font-bold text-lg text-white flex items-center gap-1.5">
@@ -730,12 +796,19 @@ function TopCard({ signal, rank, tradeMode }: { signal: SignalData; rank: number
           </p>
         </div>
         
-        <div className={cn(
-          "px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold shadow-sm",
-          isLong ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20" : "text-rose-400 bg-rose-500/10 border border-rose-500/20"
-        )}>
-          {isLong ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-          {signal.type} {signal.leverage}x
+        <div className="flex flex-col items-end gap-1">
+          <div className={cn(
+            "px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold shadow-sm",
+            isLong ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20" : "text-rose-400 bg-rose-500/10 border border-rose-500/20"
+          )}>
+            {isLong ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+            {signal.type} {signal.leverage}x
+          </div>
+          {isContrarian && (
+            <span className="text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-bold bg-sky-500/20 text-sky-400" title="Độ lệch so với xu hướng chính">
+              Ngược {Math.max(10, dev).toFixed(0)}%
+            </span>
+          )}
         </div>
       </div>
 
