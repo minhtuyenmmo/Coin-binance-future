@@ -64,22 +64,42 @@ export const TOP_50_COINS = [
 ];
 
 export async function fetchTopFutures(timeframe: Timeframe = '1h'): Promise<SignalData[]> {
-  try {
-    const res = await fetch('https://fapi.binance.com/fapi/v1/ticker/24hr');
-    const data = await res.json();
-    const now = Date.now();
-    
-    // Filter all USDT pairs by volume, limit to top 200 to reduce noise
-    const topPairs = data
-      .filter((t: any) => t.symbol.endsWith('USDT') && !t.symbol.includes('_'))
-      .sort((a: any, b: any) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
-      .slice(0, 200);
+  const endpoints = [
+    'https://fapi.binance.com/fapi/v1/ticker/24hr',
+    'https://fapi1.binance.com/fapi/v1/ticker/24hr',
+    'https://fapi2.binance.com/fapi/v1/ticker/24hr',
+    'https://api.binance.com/api/v3/ticker/24hr' // Fallback to Spot API which has better CORS
+  ];
 
-    return topPairs.map((ticker: BinanceTicker) => generateSignalData(ticker, timeframe, now));
-  } catch (error) {
-    console.error('Lỗi khi tải dữ liệu từ Binance:', error);
-    return [];
+  let lastError = null;
+
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+      const now = Date.now();
+      
+      const isSpot = url.includes('/api/v3/');
+      
+      // Filter USDT pairs
+      const topPairs = data
+        .filter((t: any) => t.symbol.endsWith('USDT') && !t.symbol.includes('_'))
+        .sort((a: any, b: any) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
+        .slice(0, 200);
+
+      // If no data found on this endpoint, try next
+      if (topPairs.length === 0) continue;
+
+      return topPairs.map((ticker: BinanceTicker) => generateSignalData(ticker, timeframe, now));
+    } catch (error) {
+      console.warn(`Lỗi khi tải từ ${url}:`, error);
+      lastError = error;
+    }
   }
+
+  console.error('Tất cả các endpoint Binance đều thất bại:', lastError);
+  return [];
 }
 
 function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: number): SignalData {
