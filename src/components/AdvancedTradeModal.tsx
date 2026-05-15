@@ -351,39 +351,7 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
         </div>
         
         <div className="p-6 space-y-6">
-          <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
-            <div>
-              <h4 className="text-emerald-400 font-bold flex items-center gap-2 mb-1">
-                <Orbit className={`w-5 h-5 ${isScanning ? 'animate-spin' : 'animate-spin-slow'}`} /> Trade bằng AI Agent
-              </h4>
-              <p className="text-slate-300 text-xs md:text-sm">
-                AI sẽ tự quét dữ liệu on-chain, theo dõi biến động của cá mập và đưa ra tín hiệu khi điều kiện thị trường tối ưu nhất.
-              </p>
-              {isScanning && (
-                <div className="mt-2 text-xs font-mono text-emerald-400 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
-                  {scanStatus}
-                </div>
-              )}
-            </div>
-            <button 
-              onClick={handleStartScan}
-              disabled={isScanning}
-              className={`whitespace-nowrap ${isScanning ? 'bg-slate-700 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98]'} text-white font-bold py-2 px-4 rounded-lg shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2`}
-            >
-              <Zap className="w-4 h-4" /> {isScanning ? 'Đang Quét...' : 'Kích Hoạt AI Agent'}
-            </button>
-          </div>
-
-          <p className="text-slate-300 text-sm">
-            AI đã quét toàn bộ thị trường và Liquidation Map để chọn ra top 3 đồng coin có xác suất thắng cao nhất ở thời điểm hiện tại. Tỉ lệ rủi ro/lợi nhuận (R:R) được tối ưu hóa.
-          </p>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {topSignals.map((signal, idx) => renderSignalCard(signal, idx, false))}
-          </div>
-
-          <div className="mt-8 border-t border-slate-800 pt-6">
+          <div>
             <h4 className="text-lg font-bold text-white flex items-center gap-2 mb-2">
               <Search className="w-5 h-5 text-purple-400" />
               AI Tư Vấn Độc Lập
@@ -468,6 +436,40 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="mt-8 border-t border-slate-800 pt-6">
+            <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
+              <div>
+                <h4 className="text-emerald-400 font-bold flex items-center gap-2 mb-1">
+                  <Orbit className={`w-5 h-5 ${isScanning ? 'animate-spin' : 'animate-spin-slow'}`} /> Trade bằng AI Agent
+                </h4>
+                <p className="text-slate-300 text-xs md:text-sm">
+                  AI sẽ tự quét dữ liệu on-chain, theo dõi biến động của cá mập và đưa ra tín hiệu khi điều kiện thị trường tối ưu nhất.
+                </p>
+                {isScanning && (
+                  <div className="mt-2 text-xs font-mono text-emerald-400 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
+                    {scanStatus}
+                  </div>
+                )}
+              </div>
+              <button 
+                onClick={handleStartScan}
+                disabled={isScanning}
+                className={`whitespace-nowrap ${isScanning ? 'bg-slate-700 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98]'} text-white font-bold py-2 px-4 rounded-lg shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2`}
+              >
+                <Zap className="w-4 h-4" /> {isScanning ? 'Đang Quét...' : 'Kích Hoạt AI Agent'}
+              </button>
+            </div>
+
+            <p className="text-slate-300 text-sm mt-6">
+              AI đã quét toàn bộ thị trường và Liquidation Map để chọn ra top 3 đồng coin có xác suất thắng cao nhất ở thời điểm hiện tại. Tỉ lệ rủi ro/lợi nhuận (R:R) được tối ưu hóa.
+            </p>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+              {topSignals.map((signal, idx) => renderSignalCard(signal, idx, false))}
+            </div>
           </div>
 
           <div className="mt-8 border-t border-slate-800 pt-6">
