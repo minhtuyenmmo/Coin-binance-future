@@ -105,8 +105,8 @@ export default function App() {
 
   useEffect(() => {
     loadData(timeframe);
-    // Polling every 15 seconds to simulate realtime
-    const interval = setInterval(() => loadData(timeframe), 15000);
+    // Polling every 1 minute to simulate realtime
+    const interval = setInterval(() => loadData(timeframe), 60000);
     return () => clearInterval(interval);
   }, [timeframe]);
 
