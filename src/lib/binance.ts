@@ -53,6 +53,7 @@ export interface SignalData {
       schematic: 'Accumulation' | 'Distribution' | 'Reaccumulation' | 'Redistribution';
     };
   };
+  contrarianScore?: number;
 }
 
 export const TOP_50_COINS = [
@@ -357,4 +358,76 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
       }
     }
   };
+}
+
+export async function analyzeContrarianKlines(candidates: SignalData[]): Promise<SignalData[]> {
+  try {
+    const intervals = ['5m', '15m', '30m', '1h'];
+    const limit = 5; // Look at last 5 candles to determine recent trend
+    const endpointsWithCORSReady = [
+      'https://api.binance.com/api/v3/klines', // Spot has fewer CORS issues
+      'https://fapi.binance.com/fapi/v1/klines'
+    ];
+
+    // Create tasks for each candidate
+    const enhancedCandidates = await Promise.all(
+      candidates.map(async (candidate) => {
+        let totalContrarianScore = 0;
+
+        for (const interval of intervals) {
+          try {
+            // Try fetching from spot API first to avoid CORS issues
+            let data = null;
+            let success = false;
+            for (const ep of endpointsWithCORSReady) {
+              try {
+                const res = await fetch(`${ep}?symbol=${candidate.symbol}&interval=${interval}&limit=${limit}`);
+                if (res.ok) {
+                  data = await res.json();
+                  success = true;
+                  break;
+                }
+              } catch (e) {
+                // try next
+              }
+            }
+
+            if (!success || !data) continue;
+
+            // Calculate price change across the fetched candles
+            const firstCandleOpen = parseFloat(data[0][1]);
+            const lastCandleClose = parseFloat(data[data.length - 1][4]);
+            
+            const pctChange = (lastCandleClose - firstCandleOpen) / firstCandleOpen * 100;
+            
+            // Score logically: 
+            // If Signal is LONG (meaning algorithm wants it to go UP), 
+            // but price action is heavily DOWN (pctChange < 0), it's highly contrarian.
+            if (candidate.type === 'LONG') {
+              totalContrarianScore += -pctChange; 
+            } else {
+              // Signal is SHORT (wants it to go DOWN), 
+              // but price action is heavily UP (pctChange > 0)
+              totalContrarianScore += pctChange;
+            }
+          } catch (err) {
+            console.error(`Failed to fetch kline for ${candidate.symbol} at ${interval}`, err);
+          }
+        }
+
+        return {
+          ...candidate,
+          contrarianScore: totalContrarianScore
+        };
+      })
+    );
+
+    // Sort by descending contrarian score
+    return enhancedCandidates
+      .sort((a, b) => (b.contrarianScore || 0) - (a.contrarianScore || 0));
+
+  } catch (err) {
+    console.error('Error analyzing contrarian klines', err);
+    return candidates;
+  }
 }

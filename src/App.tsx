@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, TrendingDown, Zap, ChevronDown, ChevronUp, Clock, Star, Coins, Github, Loader2, Crown, Activity, Compass, Layers, Sparkles, Search, Bot } from 'lucide-react';
-import { Timeframe, fetchTopFutures, SignalData, TOP_50_COINS } from './lib/binance';
+import { Timeframe, fetchTopFutures, SignalData, TOP_50_COINS, analyzeContrarianKlines } from './lib/binance';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
@@ -209,26 +209,41 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAIScanning, adjustedSignals, loading, timeframe]);
 
+  const [isAnalyzingContrarian, setIsAnalyzingContrarian] = useState(false);
+
   useEffect(() => {
     if (shouldUpdateContrarian && adjustedSignals.length > 0) {
-      const contrarian = [...adjustedSignals]
-        .filter(s => !s.hasFakeVolume)
-        .sort((a, b) => {
-          // Logic "Ngược": Tín hiệu LONG nhưng giá đang giảm mạnh, hoặc SHORT nhưng giá tăng mạnh
-          const devA = a.type === 'LONG' ? -a.change24h : a.change24h;
-          const devB = b.type === 'LONG' ? -b.change24h : b.change24h;
-          
-          // Kết hợp thêm RSI để đảm bảo độ quá bán/quá mua
-          const rsiA = a.indicators?.rsi || 50;
-          const rsiB = b.indicators?.rsi || 50;
-          const rsiDevA = a.type === 'LONG' ? (50 - rsiA) : (rsiA - 50);
-          const rsiDevB = b.type === 'LONG' ? (50 - rsiB) : (rsiB - 50);
-          
-          return (devB + rsiDevB) - (devA + rsiDevA);
-        })
-        .slice(0, 3);
-      setAppContrarianSignals(contrarian);
       setShouldUpdateContrarian(false);
+      
+      const fetchAndSetContrarian = async () => {
+        setIsAnalyzingContrarian(true);
+        try {
+          // Lọc ra top 15 coin có dấu hiệu biến động mạnh ngược với tín hiệu mong đợi
+          const devCandidates = [...adjustedSignals]
+            .filter(s => !s.hasFakeVolume)
+            .sort((a, b) => {
+              const devA = a.type === 'LONG' ? -a.change24h : a.change24h;
+              const devB = b.type === 'LONG' ? -b.change24h : b.change24h;
+              
+              const rsiA = a.indicators?.rsi || 50;
+              const rsiB = b.indicators?.rsi || 50;
+              const rsiDevA = a.type === 'LONG' ? (50 - rsiA) : (rsiA - 50);
+              const rsiDevB = b.type === 'LONG' ? (50 - rsiB) : (rsiB - 50);
+              
+              return (devB + rsiDevB) - (devA + rsiDevA);
+            })
+            .slice(0, 10);
+            
+          const results = await analyzeContrarianKlines(devCandidates);
+          setAppContrarianSignals(results.slice(0, 3));
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setIsAnalyzingContrarian(false);
+        }
+      };
+      
+      fetchAndSetContrarian();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldUpdateContrarian, adjustedSignals]);
@@ -465,7 +480,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Kèo Tối Ưu Section */}
+        {/* Kèo Tối Ưu Section (Tắt theo yêu cầu) */}
+        {/*
         {!loading && optimalSignals.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
@@ -487,25 +503,35 @@ export default function App() {
             </div>
           </div>
         )}
+        */}
 
         {/* Kèo Ngược Chỉ Báo (Volume Mode Only) */}
-        {!loading && tradeMode === 'VOLUME' && appContrarianSignals.length > 0 && (
+        {!loading && tradeMode === 'VOLUME' && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <div className="bg-sky-500/10 p-1.5 rounded-lg">
                 <TrendingDown className="w-5 h-5 text-sky-400" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">Top 3 Kèo Ngược Chỉ Báo</h2>
-                <p className="text-sm text-slate-400">Các đồng coin có giá đi ngược % xa nhất so với tín hiệu gốc.</p>
+                <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                  Top 3 Kèo Ngược Chỉ Báo 
+                  {isAnalyzingContrarian && <Loader2 className="w-4 h-4 text-sky-400 animate-spin" />}
+                </h2>
+                <p className="text-sm text-slate-400">Đã phân tích nến thực (m5, m15, m30, 1h) để tìm coin chạy ngược tín hiệu.</p>
               </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <AnimatePresence>
-                {appContrarianSignals.map((signal, index) => (
-                  <TopCard key={`con-${signal.symbol}`} signal={signal} rank={index + 1} tradeMode={tradeMode} isContrarian={true} />
-                ))}
+                {isAnalyzingContrarian && appContrarianSignals.length === 0 ? (
+                  [1, 2, 3].map((i) => (
+                    <div key={i} className="h-48 bg-slate-900/50 rounded-2xl animate-pulse border border-sky-500/10"></div>
+                  ))
+                ) : (
+                  appContrarianSignals.map((signal, index) => (
+                    <TopCard key={`con-${signal.symbol}`} signal={signal} rank={index + 1} tradeMode={tradeMode} isContrarian={true} />
+                  ))
+                )}
               </AnimatePresence>
             </div>
           </div>
@@ -823,7 +849,7 @@ function TopCard({ signal, rank, tradeMode, isContrarian }: { signal: SignalData
           </div>
           {isContrarian && (
             <span className="text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-bold bg-sky-500/20 text-sky-400" title="Độ lệch so với xu hướng chính">
-              Ngược {Math.max(10, dev).toFixed(0)}%
+              Ngược {(signal.contrarianScore ? signal.contrarianScore : Math.max(10, dev)).toFixed(1)}%
             </span>
           )}
         </div>
