@@ -27,14 +27,31 @@ export default function App() {
   const [passwordInput, setPasswordInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleLogin = () => {
-    // Basic obscuring to make it harder to read plainly in source code
-    // btoa("autorun123") is "YXV0b3J1bjEyMw=="
-    if (btoa(passwordInput) === 'YXV0b3J1bjEyMw==') {
-      setIsAuthenticated(true);
-      setErrorMsg('');
-    } else {
-      setErrorMsg('Mật khẩu không chính xác!');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const handleLogin = async () => {
+    if (!passwordInput.trim()) return;
+    setIsLoggingIn(true);
+    setErrorMsg('');
+    
+    try {
+      const response = await fetch('/api/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: passwordInput })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setIsAuthenticated(true);
+      } else {
+        setErrorMsg(data.message || 'Mật khẩu không chính xác!');
+      }
+    } catch (err) {
+      setErrorMsg('Lỗi kết nối đến máy chủ.');
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -545,9 +562,10 @@ export default function App() {
                 
                 <button 
                   onClick={handleLogin}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
+                  disabled={isLoggingIn}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98] flex justify-center items-center gap-2"
                 >
-                  Mở Khóa Tính Năng VIP
+                  {isLoggingIn ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Mở Khóa Tính Năng VIP'}
                 </button>
               </div>
             </motion.div>

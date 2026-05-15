@@ -118,28 +118,6 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
   const isLong = (hash % 100) > 40; 
   const type = isLong ? 'LONG' : 'SHORT';
 
-  // Điều chỉnh TP/SL theo độ biến động (volatility) dựa trên khung thời gian
-  const baseVolatility = Math.max(Math.abs(change) / 100, 0.01) * tfMultiplier; 
-  const volatility = Math.min(baseVolatility, 0.1); 
-
-  const entry = price;
-  
-  // R/R Ratio (Risk/Reward) ~ 1:2
-  const profitMargin = volatility * 1.5;
-  const lossMargin = volatility * 0.75;
-
-  const tp = isLong ? price * (1 + profitMargin) : price * (1 - profitMargin);
-  const sl = isLong ? price * (1 - lossMargin) : price * (1 + lossMargin);
-  
-  // Đòn bẩy phụ thuộc vào biến động (biến động thấp -> đòn bẩy cao hơn)
-  // Khung lớn hơn -> biến động lớn -> đòn bẩy nhỏ hơn
-  let leverage = 20;
-  const currentVol = Math.abs(change) * tfMultiplier;
-  if (currentVol > 8) leverage = 10;
-  if (currentVol > 15) leverage = 5;
-  if (currentVol > 25) leverage = 3;
-  if (currentVol > 40) leverage = 2;
-
   // Format số đẹp (khắc phục lỗi TP/SL bằng nhau với các coin giá quá nhỏ)
   let decimals = 2;
   if (price < 0.00001) decimals = 8;
@@ -149,6 +127,49 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
   else if (price < 0.1) decimals = 5;
   else if (price < 1) decimals = 4;
   else if (price < 10) decimals = 3;
+
+  // Tính toán điểm vào lệnh (Grid-based Entry Anchoring) ổn định áp dụng cho tất cả
+  // Giúp entry không thay đổi chớp nhoáng mà neo theo các mốc hỗ trợ/kháng cự quan trọng.
+  const approxStep = price * 0.005; // Khoảng 0.5% giá trị thị giá
+  const p = Math.floor(Math.log10(approxStep > 0 ? approxStep : 1));
+  const f = approxStep / Math.pow(10, p);
+  let niceStep;
+  if (f < 1.5) niceStep = 1 * Math.pow(10, p);
+  else if (f < 3) niceStep = 2 * Math.pow(10, p);
+  else if (f < 7) niceStep = 5 * Math.pow(10, p);
+  else niceStep = 10 * Math.pow(10, p);
+
+  // Gắn giá về mốc tròn gần nhất dựa trên niceStep
+  const anchoredPrice = Math.round(price / niceStep) * niceStep;
+  const gridOffset = (Math.abs(hash) % 3) + 1; // 1 đến 3 step
+
+  let optimalEntryNum = isLong 
+    ? anchoredPrice - (niceStep * gridOffset)
+    : anchoredPrice + (niceStep * gridOffset);
+    
+  if (optimalEntryNum <= 0) optimalEntryNum = price * 0.99;
+
+  const entry = optimalEntryNum;
+
+  // Điều chỉnh TP/SL theo độ biến động (volatility) dựa trên khung thời gian
+  const baseVolatility = Math.max(Math.abs(change) / 100, 0.01) * tfMultiplier; 
+  const volatility = Math.min(baseVolatility, 0.1); 
+
+  // R/R Ratio (Risk/Reward) ~ 1:2
+  const profitMargin = volatility * 1.5;
+  const lossMargin = volatility * 0.75;
+
+  const tp = isLong ? entry * (1 + profitMargin) : entry * (1 - profitMargin);
+  const sl = isLong ? entry * (1 - lossMargin) : entry * (1 + lossMargin);
+  
+  // Đòn bẩy phụ thuộc vào biến động (biến động thấp -> đòn bẩy cao hơn)
+  // Khung lớn hơn -> biến động lớn -> đòn bẩy nhỏ hơn
+  let leverage = 20;
+  const currentVol = Math.abs(change) * tfMultiplier;
+  if (currentVol > 8) leverage = 10;
+  if (currentVol > 15) leverage = 5;
+  if (currentVol > 25) leverage = 3;
+  if (currentVol > 40) leverage = 2;
 
   // Tính toán thời gian (dựa trên hash và now để ổn định khi reload)
   let tfDurationMs = 60 * 60 * 1000;
@@ -234,29 +255,24 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
   const fibonacci = `Fibo ${fibLevels[pseudoIndex % fibLevels.length]}`;
 
   const entryReasonsLong = [
-    'Pullback về Demand Zone (PA) + Lấp FVG (SMC) khung 15m',
-    'Test lại Hỗ trợ cứng + Nến Pin Bar (PA) + Phân kỳ RSI',
+    'Pullback về Demand Zone (PA) + Lấp FVG (SMC) khung M30',
+    'Test lại Hỗ trợ cứng + Nến Pin Bar (PA) + Phân kỳ RSI khung 1H',
     'Hồi quy Fibo 0.618 + Chạm đường EMA 50 khung 1H',
-    'Chạm dải dưới Bollinger Bands + Order Block (SMC) khung 5m',
-    'BOS -> Chờ test Breaker Block + Hợp lưu đa khung thời gian'
+    'Chạm dải dưới Bollinger Bands + Order Block (SMC) khung M30',
+    'BOS -> Chờ test Breaker Block + Hợp lưu khung 1H & M30'
   ];
   const entryReasonsShort = [
-    'Pullback về Supply Zone (PA) + Lấp FVG (SMC) khung 15m',
-    'Test lại Kháng cự cứng + Nến Engulfing (PA) + Phân kỳ RSI',
+    'Pullback về Supply Zone (PA) + Lấp FVG (SMC) khung M30',
+    'Test lại Kháng cự cứng + Nến Engulfing (PA) + Phân kỳ RSI khung 1H',
     'Hồi quy Fibo 0.618 + Chạm đường EMA 50 khung 1H',
-    'Chạm dải trên Bollinger Bands + Order Block (SMC) khung 5m',
-    'BOS giảm -> Chờ test Breaker Block + Hợp lưu đa khung thời gian'
+    'Chạm dải trên Bollinger Bands + Order Block (SMC) khung M30',
+    'BOS giảm -> Chờ test Breaker Block + Hợp lưu khung 1H & M30'
   ];
   const entryStrategy = isLong 
     ? entryReasonsLong[pseudoIndex % entryReasonsLong.length]
     : entryReasonsShort[pseudoIndex % entryReasonsShort.length];
 
-  const entryPriceNum = price;
-  const priceStr = price.toString();
-  const optimalEntryNum = isLong 
-    ? entryPriceNum * (1 - (0.002 + (pseudoIndex % 15) * 0.001))
-    : entryPriceNum * (1 + (0.002 + (pseudoIndex % 15) * 0.001));
-  const optimalEntry = optimalEntryNum.toFixed(priceStr.split('.')[1]?.length || 2);
+  const optimalEntry = entry.toFixed(decimals);
 
   // ICT Simulation
   const ictStructures: ('BOS' | 'ChoCh' | 'Consolidation')[] = ['BOS', 'ChoCh', 'Consolidation'];
