@@ -214,11 +214,17 @@ export default function App() {
       const contrarian = [...adjustedSignals]
         .filter(s => !s.hasFakeVolume)
         .sort((a, b) => {
+          // Logic "Ngược": Tín hiệu LONG nhưng giá đang giảm mạnh, hoặc SHORT nhưng giá tăng mạnh
+          const devA = a.type === 'LONG' ? -a.change24h : a.change24h;
+          const devB = b.type === 'LONG' ? -b.change24h : b.change24h;
+          
+          // Kết hợp thêm RSI để đảm bảo độ quá bán/quá mua
           const rsiA = a.indicators?.rsi || 50;
           const rsiB = b.indicators?.rsi || 50;
-          const devA = (a.type === 'LONG' ? (50 - rsiA) : (rsiA - 50)) / 50 * 100;
-          const devB = (b.type === 'LONG' ? (50 - rsiB) : (rsiB - 50)) / 50 * 100;
-          return devB - devA;
+          const rsiDevA = a.type === 'LONG' ? (50 - rsiA) : (rsiA - 50);
+          const rsiDevB = b.type === 'LONG' ? (50 - rsiB) : (rsiB - 50);
+          
+          return (devB + rsiDevB) - (devA + rsiDevA);
         })
         .slice(0, 3);
       setAppContrarianSignals(contrarian);

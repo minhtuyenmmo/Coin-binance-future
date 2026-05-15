@@ -69,10 +69,11 @@ export async function fetchTopFutures(timeframe: Timeframe = '1h'): Promise<Sign
     const data = await res.json();
     const now = Date.now();
     
-    // Filter all USDT pairs by volume
+    // Filter all USDT pairs by volume, limit to top 200 to reduce noise
     const topPairs = data
       .filter((t: any) => t.symbol.endsWith('USDT') && !t.symbol.includes('_'))
-      .sort((a: any, b: any) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume));
+      .sort((a: any, b: any) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
+      .slice(0, 200);
 
     return topPairs.map((ticker: BinanceTicker) => generateSignalData(ticker, timeframe, now));
   } catch (error) {
@@ -88,7 +89,7 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
 
   // Timeframe modifiers
   let tfMultiplier = 1;
-  let hashSeed = 1 + Math.floor(now / 15000); // thay đổi nhẹ mỗi 15s để scanner có thể tìm ra
+  let hashSeed = 1 + Math.floor(now / 3600000); // Stable for 1 hour to prevent chaotic signal changes
   switch (timeframe) {
     case '5m': tfMultiplier = 0.1; hashSeed += 5; break;
     case '15m': tfMultiplier = 0.2; hashSeed += 15; break;
@@ -112,9 +113,16 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
     hash = ticker.symbol.charCodeAt(i) + ((hash << 5) - hash) + hashSeed;
   }
 
-  // Thuật toán giả lập phân tích (cho mục đích Demo):
-  // Mix giữa biến động giá và hash để tạo ra các tín hiệu ngẫu nhiên nhưng ổn định
-  const isLong = (hash % 100) > 40; 
+  // Thuật toán phân tích (kết hợp Price Action + Volume):
+  // Nếu giá tăng + volume tăng -> Ưu tiên LONG. Nếu giá giảm + volume tăng -> Ưu tiên SHORT.
+  const priceTrend = change > 0;
+  const volumeTrend = quoteVolume > 50000000; // Ngưỡng volume lớn
+  
+  // Mix giữa xu hướng thực tế và hash để tạo sự ổn định nhưng vẫn có biến thiên
+  let isLong = (hash % 100) > 40; 
+  if (change > 2 && volumeTrend) isLong = (hash % 100) > 20; // Ưu tiên LONG hơn khi đang bay
+  if (change < -2 && volumeTrend) isLong = (hash % 100) > 80; // Ưu tiên SHORT hơn khi đang sập
+  
   const type = isLong ? 'LONG' : 'SHORT';
 
   // Format số đẹp (khắc phục lỗi TP/SL bằng nhau với các coin giá quá nhỏ)
