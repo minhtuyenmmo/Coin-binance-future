@@ -35,21 +35,33 @@ export default function App() {
     setErrorMsg('');
     
     try {
-      const response = await fetch('/api/verify-password', {
+      const response = await fetch('/api-verify-vip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ password: passwordInput })
       });
       
-      const data = await response.json();
+      const text = await response.text();
+      
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        if (text.includes('<title>Cookie check</title>') || text.includes('Cookie check')) {
+          setErrorMsg('Vui lòng mở ứng dụng trong tab mới (biểu tượng mũi tên góc trên cùng bên phải) để đăng nhập.');
+          return;
+        }
+        throw new Error('Phản hồi từ máy chủ không hợp lệ.');
+      }
       
       if (data.success) {
         setIsAuthenticated(true);
       } else {
         setErrorMsg(data.message || 'Mật khẩu không chính xác!');
       }
-    } catch (err) {
-      setErrorMsg('Lỗi kết nối đến máy chủ.');
+    } catch (err: any) {
+      setErrorMsg(`Lỗi kết nối đến máy chủ: ${err.message}`);
     } finally {
       setIsLoggingIn(false);
     }

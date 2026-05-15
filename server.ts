@@ -10,7 +10,7 @@ async function startServer() {
   app.use(express.json());
 
   // API kiểm tra mật khẩu VIP
-  app.post('/api/verify-password', async (req, res) => {
+  app.post('/api-verify-vip', async (req, res) => {
     try {
       const { password } = req.body;
       const pwdFile = path.join(process.cwd(), 'passwords.txt');
