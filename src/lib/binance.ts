@@ -86,6 +86,7 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
   const price = parseFloat(ticker.lastPrice);
   const change = parseFloat(ticker.priceChangePercent);
   const volume = parseFloat(ticker.volume);
+  const quoteVolume = parseFloat(ticker.quoteVolume);
 
   // Timeframe modifiers
   let tfMultiplier = 1;
@@ -195,7 +196,6 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
   const closeOffsetMs = ((pseudoHash * 13) % tfDurationMs) + (tfDurationMs / 2);
   const closeTime = entryTime + closeOffsetMs;
 
-  const quoteVolume = parseFloat(ticker.quoteVolume);
   const count = ticker.count;
   const high = parseFloat(ticker.highPrice);
   const low = parseFloat(ticker.lowPrice);
