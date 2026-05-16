@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import AdvancedTradeModal from './components/AdvancedTradeModal';
+import { MiniChart } from './components/MiniChart';
 import AdminPanel from './components/AdminPanel';
 
 import { db } from './lib/firebase';
@@ -349,6 +350,16 @@ export default function App() {
                 Cập nhật lúc: {lastUpdated.toLocaleTimeString('vi-VN')}
               </span>
             )}
+            <div className="flex relative w-24 sm:w-32 md:w-48">
+              <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Tìm coin..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 text-white pl-8 sm:pl-9 pr-2 sm:pr-3 py-1.5 rounded-lg text-sm focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 placeholder:text-slate-500"
+              />
+            </div>
             {tradeMode !== 'VOLUME' && (
               <button
                  onClick={() => setIsAIScanning(!isAIScanning)}
@@ -853,6 +864,10 @@ function TopCard({ signal, rank, tradeMode, isContrarian }: { signal: SignalData
             </span>
           )}
         </div>
+      </div>
+
+      <div className="h-16 w-full mb-4 mt-2">
+        <MiniChart symbol={signal.symbol} color={isContrarian ? '#38bdf8' : (isLong ? '#10b981' : '#f43f5e')} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-4">

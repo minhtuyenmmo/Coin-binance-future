@@ -1,6 +1,7 @@
 import { useState, Fragment, useEffect } from 'react';
 import { X, Crown, TrendingUp, TrendingDown, Target, Shield, Percent, Zap, Activity, ChevronDown, ChevronUp, Orbit, Search, Loader2 } from 'lucide-react';
 import { SignalData, analyzeContrarianKlines } from '../lib/binance';
+import { MiniChart } from './MiniChart';
 
 interface Props {
   onClose: () => void;
@@ -146,16 +147,16 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
       let consultWinRate = match.winRate;
       let reason = '';
 
-      if (match.winRate < 55) {
+      if (match.winRate < 60) {
         action = 'OBSERVE';
-        reason = `Tín hiệu ${targetCoin} đang nhiễu, biên độ dao động mỏng, lực mua bán đang giằng co. Khuyến nghị đứng ngoài quan sát thêm tín hiệu xác nhận.`;
+        reason = `Lưu ý rủi ro: Chỉ số vào lệnh ${targetCoin} đang KHÔNG AN TOÀN ở thời điểm hiện tại (Win Rate ${(match.winRate).toFixed(1)}%). Tín hiệu đang nhiễu lộn xộn, mua bán giằng co. Khuyến nghị ĐỨNG NGOÀI quan sát thêm để bảo toàn vốn.`;
       } else {
         if (match.type === 'LONG') {
           action = 'LONG';
-          reason = `Mô hình giá ${targetCoin} tích lũy vùng đáy, RSI có dấu hiệu phân kỳ tăng, đã quét thanh khoản phe Short. Có thể vào lệnh LONG.`;
+          reason = `Tỉ lệ thắng cao (${(match.winRate).toFixed(1)}%). Mô hình giá ${targetCoin} tích lũy vùng đáy, RSI có dấu hiệu phân kỳ tăng, đã quét thanh khoản phe Short. Khuyến nghị mở lệnh LONG.`;
         } else {
           action = 'SHORT';
-          reason = `Giá ${targetCoin} chạm kháng cự mạnh, volume mua cạn kiệt, Liquidations phe Long dày đặc ở dưới. Lý tưởng để canh SHORT.`;
+          reason = `Tỉ lệ thắng cao (${(match.winRate).toFixed(1)}%). Giá ${targetCoin} chạm kháng cự mạnh, volume mua cạn kiệt, Liquidations phe Long dày đặc ở dưới. Lý tưởng để canh SHORT.`;
         }
       }
 
@@ -300,6 +301,10 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
           <div className={`text-2xl font-black drop-shadow-md ${isContrarian ? 'text-sky-400' : 'text-amber-400'}`}>
             #{idx + 1}
           </div>
+        </div>
+
+        <div className="h-16 w-full mb-4 mt-2">
+          <MiniChart symbol={signal.symbol} color={isContrarian ? '#38bdf8' : (isLong ? '#10b981' : '#f43f5e')} />
         </div>
 
         <div className="grid grid-cols-2 gap-3 relative z-10">
