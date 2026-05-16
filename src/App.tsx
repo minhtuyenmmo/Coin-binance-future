@@ -1,5 +1,5 @@
-import { useEffect, useState, useMemo } from 'react';
-import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, TrendingDown, Zap, ChevronDown, ChevronUp, Clock, Star, Coins, Github, Loader2, Crown, Activity, Compass, Layers, Sparkles, Search, Bot } from 'lucide-react';
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { ArrowDownRight, ArrowUpRight, Crosshair, Percent, RefreshCw, ShieldAlert, ShieldCheck, Target, TrendingUp, TrendingDown, Zap, ChevronDown, ChevronUp, Clock, Star, Coins, Github, Loader2, Crown, Activity, Compass, Layers, Sparkles, Search, Bot, Bell, BellRing, VolumeX } from 'lucide-react';
 import { Timeframe, fetchTopFutures, SignalData, TOP_50_COINS, analyzeContrarianKlines } from './lib/binance';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -25,7 +25,50 @@ export default function App() {
   const [filterTopCoin, setFilterTopCoin] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedSymbol, setExpandedSymbol] = useState<string | null>(null);
+  const [watchedSymbols, setWatchedSymbols] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('watchedSymbols');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch (e) {
+      return new Set();
+    }
+  });
+  
+  const [signalHistory, setSignalHistory] = useState<Record<string, 'LONG' | 'SHORT'>>(() => {
+    try {
+      const saved = localStorage.getItem('signalHistory');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+  const [alarmingSymbols, setAlarmingSymbols] = useState<Set<string>>(new Set());
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  useEffect(() => {
+    if (!audioRef.current) {
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+      audio.loop = true;
+      audioRef.current = audio;
+    }
+  }, []);
   const [tradeMode, setTradeMode] = useState<TradeMode>('VOLUME');
+
+  useEffect(() => {
+    localStorage.setItem('watchedSymbols', JSON.stringify(Array.from(watchedSymbols)));
+  }, [watchedSymbols]);
+
+  const toggleWatch = (symbol: string) => {
+    setWatchedSymbols(prev => {
+      const next = new Set(prev);
+      if (next.has(symbol)) {
+        next.delete(symbol);
+      } else {
+        next.add(symbol);
+      }
+      return next;
+    });
+  };
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateStatus, setUpdateStatus] = useState('Update Tool');
   
@@ -194,6 +237,51 @@ export default function App() {
     });
   }, [allAdjustedSignals, filterWashTrade, filterTopCoin, searchQuery]);
 
+  // Monitor reversal of watched signals
+  useEffect(() => {
+    if (adjustedSignals.length === 0) return;
+
+    setSignalHistory(prev => {
+      const next = { ...prev };
+      let changed = false;
+      const newAlarming = new Set(alarmingSymbols);
+
+      adjustedSignals.forEach(signal => {
+        if (watchedSymbols.has(signal.symbol)) {
+          const prevType = prev[signal.symbol];
+          // Detect reversal
+          if (prevType && prevType !== signal.type) {
+             newAlarming.add(signal.symbol);
+             changed = true;
+          }
+          if (prevType !== signal.type) {
+             next[signal.symbol] = signal.type;
+             changed = true;
+          }
+        }
+      });
+
+      if (changed) {
+        localStorage.setItem('signalHistory', JSON.stringify(next));
+        if (newAlarming.size > alarmingSymbols.size) {
+           setAlarmingSymbols(newAlarming);
+        }
+        return next;
+      }
+      return prev;
+    });
+  }, [adjustedSignals, watchedSymbols]);
+
+  // Play/Stop Audio
+  useEffect(() => {
+    if (alarmingSymbols.size > 0) {
+      audioRef.current?.play().catch(e => console.error('Audio play failed (maybe autoplay blocked):', e));
+    } else {
+      audioRef.current?.pause();
+      if (audioRef.current) audioRef.current.currentTime = 0;
+    }
+  }, [alarmingSymbols]);
+
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (isAIScanning && !loading) {
@@ -271,6 +359,10 @@ export default function App() {
     
     return sorted;
   })();
+
+  const watchedSignals = useMemo(() => {
+    return adjustedSignals.filter(s => watchedSymbols.has(s.symbol));
+  }, [adjustedSignals, watchedSymbols]);
 
   const optimalSymbols = useMemo(() => new Set(optimalSignals.map(s => s.symbol)), [optimalSignals]);
 
@@ -425,6 +517,57 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 sm:mt-8 space-y-8">
 
+        {/* Watched Signals */}
+        {watchedSignals.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-white tracking-tight flex items-center gap-2">
+                <BellRing className="w-5 h-5 text-amber-400" /> Danh Sách Theo Dõi Đặc Biệt
+              </h2>
+              {alarmingSymbols.size > 0 && (
+                <button
+                  onClick={() => setAlarmingSymbols(new Set())}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/50 hover:bg-rose-500/30 transition-colors animate-pulse font-medium text-sm"
+                >
+                  <VolumeX className="w-4 h-4" /> Dừng báo động
+                </button>
+              )}
+            </div>
+            <div className="overflow-x-auto rounded-xl bg-slate-900/50 relative">
+              <div className="absolute inset-0 rounded-xl pointer-events-none animate-glow-rgb" style={{ borderRadius: '0.75rem', zIndex: 1 }}></div>
+              <table className="w-full text-sm text-left text-slate-300 relative z-10">
+                <thead className="bg-slate-950/80 text-amber-500/80 border-b border-amber-500/20 hidden sm:table-header-group">
+                  <tr>
+                    <th className="px-6 py-4 font-medium w-16 rounded-tl-xl">STT</th>
+                    <th className="px-6 py-4 font-medium">Cặp giao dịch (USDT)</th>
+                    <th className="px-6 py-4 font-medium">Giá hiện tại</th>
+                    <th className="px-6 py-4 font-medium">Tín hiệu</th>
+                    <th className="px-6 py-4 font-medium">Vào lệnh (Entry)</th>
+                    <th className="px-6 py-4 font-medium">Chốt lời (TP)</th>
+                    <th className="px-6 py-4 font-medium">Cắt lỗ (SL)</th>
+                    <th className="px-6 py-4 font-medium text-right rounded-tr-xl">Tỉ lệ thắng</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-amber-500/10">
+                  {watchedSignals.map((signal, index) => (
+                    <TableRow 
+                      key={signal.symbol} 
+                      signal={signal} 
+                      tradeMode={tradeMode} 
+                      isOptimal={optimalSymbols.has(signal.symbol)} 
+                      index={index + 1}
+                      isExpanded={expandedSymbol === signal.symbol}
+                      onToggle={() => setExpandedSymbol(expandedSymbol === signal.symbol ? null : signal.symbol)}
+                      isWatched={watchedSymbols.has(signal.symbol)}
+                      onToggleWatch={() => toggleWatch(signal.symbol)}
+                      isReversed={alarmingSymbols.has(signal.symbol)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Intro */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
@@ -501,7 +644,15 @@ export default function App() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <AnimatePresence>
               {topSignals.map((signal, index) => (
-                <TopCard key={signal.symbol} signal={signal} rank={index + 1} tradeMode={tradeMode} />
+                <TopCard 
+                  key={signal.symbol} 
+                  signal={signal} 
+                  rank={index + 1} 
+                  tradeMode={tradeMode} 
+                  isWatched={watchedSymbols.has(signal.symbol)}
+                  onToggleWatch={() => toggleWatch(signal.symbol)}
+                  isReversed={alarmingSymbols.has(signal.symbol)}
+                />
               ))}
             </AnimatePresence>
           </div>
@@ -524,7 +675,13 @@ export default function App() {
             <div className="flex justify-start">
               {optimalSignals.map((signal) => (
                 <div key={`opt-${signal.symbol}`} className="w-full max-w-md">
-                  <OptimalCard signal={signal} tradeMode={tradeMode} />
+                  <OptimalCard 
+                    signal={signal} 
+                    tradeMode={tradeMode} 
+                    isWatched={watchedSymbols.has(signal.symbol)}
+                    onToggleWatch={() => toggleWatch(signal.symbol)}
+                    isReversed={alarmingSymbols.has(signal.symbol)}
+                  />
                 </div>
               ))}
             </div>
@@ -556,13 +713,24 @@ export default function App() {
                   ))
                 ) : (
                   appContrarianSignals.map((signal, index) => (
-                    <TopCard key={`con-${signal.symbol}`} signal={signal} rank={index + 1} tradeMode={tradeMode} isContrarian={true} />
+                    <TopCard 
+                      key={`con-${signal.symbol}`} 
+                      signal={signal} 
+                      rank={index + 1} 
+                      tradeMode={tradeMode} 
+                      isContrarian={true} 
+                      isWatched={watchedSymbols.has(signal.symbol)}
+                      onToggleWatch={() => toggleWatch(signal.symbol)}
+                      isReversed={alarmingSymbols.has(signal.symbol)}
+                    />
                   ))
                 )}
               </AnimatePresence>
             </div>
           </div>
         )}
+
+
 
         {/* Main Board */}
         <div>
@@ -656,6 +824,8 @@ export default function App() {
                         index={index + 1}
                         isExpanded={expandedSymbol === signal.symbol}
                         onToggle={() => setExpandedSymbol(expandedSymbol === signal.symbol ? null : signal.symbol)}
+                        isWatched={watchedSymbols.has(signal.symbol)}
+                        onToggleWatch={() => toggleWatch(signal.symbol)}
                       />
                     ))
                   )}
@@ -762,7 +932,7 @@ export default function App() {
   );
 }
 
-function OptimalCard({ signal, tradeMode }: { signal: SignalData; tradeMode: TradeMode }) {
+function OptimalCard({ signal, tradeMode, isWatched, onToggleWatch, isReversed }: { signal: SignalData; tradeMode: TradeMode; isWatched?: boolean; onToggleWatch?: (e: React.MouseEvent) => void; isReversed?: boolean }) {
   const isLong = signal.type === 'LONG';
   const distance = Math.abs(signal.price - parseFloat(signal.indicators.optimalEntry)) / signal.price;
   const isVaoNgay = distance < 0.003; // Within 0.3%
@@ -771,7 +941,10 @@ function OptimalCard({ signal, tradeMode }: { signal: SignalData; tradeMode: Tra
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-slate-900/40 p-5 flex flex-col border-l-4 border-l-amber-500"
+      className={cn(
+        "relative overflow-hidden rounded-2xl border border-amber-500/30 bg-slate-900/40 p-5 flex flex-col border-l-4 border-l-amber-500",
+        isReversed && "animate-glow-red z-20"
+      )}
     >
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-2">
@@ -781,6 +954,19 @@ function OptimalCard({ signal, tradeMode }: { signal: SignalData; tradeMode: Tra
           )}>
             {isLong ? 'B' : 'S'}
           </div>
+          <button
+              onClick={(e) => {
+                e.preventDefault();
+                onToggleWatch?.(e);
+              }}
+              className={cn(
+                "p-1.5 rounded-md transition-colors -ml-1",
+                isWatched ? "text-amber-400 bg-amber-400/10" : "text-slate-600 hover:text-slate-400 hover:bg-slate-800"
+              )}
+              title="Theo dõi đặc biệt"
+            >
+              {isWatched ? <BellRing className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+            </button>
           <div>
             <h4 className="font-bold text-white text-base">
               {signal.symbol.replace('USDT', '')}
@@ -832,7 +1018,7 @@ function OptimalCard({ signal, tradeMode }: { signal: SignalData; tradeMode: Tra
   );
 }
 
-function TopCard({ signal, rank, tradeMode, isContrarian }: { signal: SignalData; rank: number; tradeMode: TradeMode; isContrarian?: boolean }) {
+function TopCard({ signal, rank, tradeMode, isContrarian, isWatched, onToggleWatch, isReversed }: { signal: SignalData; rank: number; tradeMode: TradeMode; isContrarian?: boolean; isWatched?: boolean; onToggleWatch?: (e: React.MouseEvent) => void; isReversed?: boolean }) {
   const isLong = signal.type === 'LONG';
   const dev = signal.indicators?.rsi ? (isLong ? (50 - signal.indicators.rsi) : (signal.indicators.rsi - 50)) / 50 * 100 : 0;
 
@@ -843,7 +1029,9 @@ function TopCard({ signal, rank, tradeMode, isContrarian }: { signal: SignalData
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3, delay: rank * 0.1 }}
       className={cn("relative overflow-hidden rounded-2xl border bg-slate-900/40 p-6 flex flex-col transition-colors group", 
-        isContrarian ? "border-sky-500/30 hover:border-sky-500/60" : "border-slate-800 hover:border-slate-700")}
+        isContrarian ? "border-sky-500/30 hover:border-sky-500/60" : "border-slate-800 hover:border-slate-700",
+        isReversed && "animate-glow-red z-20"
+      )}
     >
       {/* Background Glow */}
       <div className={cn(
@@ -859,6 +1047,19 @@ function TopCard({ signal, rank, tradeMode, isContrarian }: { signal: SignalData
             )}>
               #{rank}
             </span>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                onToggleWatch?.(e);
+              }}
+              className={cn(
+                "p-1.5 rounded-md transition-colors -ml-1",
+                isWatched ? "text-amber-400 bg-amber-400/10" : "text-slate-600 hover:text-slate-400 hover:bg-slate-800"
+              )}
+              title="Theo dõi đặc biệt"
+            >
+              {isWatched ? <BellRing className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+            </button>
             <h3 className="font-bold text-lg text-white flex items-center gap-1.5">
               {signal.symbol.replace('USDT', '')}
               <span className="text-slate-500 text-sm font-normal">/USDT</span>
@@ -937,7 +1138,7 @@ function TopCard({ signal, rank, tradeMode, isContrarian }: { signal: SignalData
   );
 }
 
-function TableRow({ signal, tradeMode, isOptimal, index, isExpanded, onToggle }: { signal: SignalData; tradeMode: TradeMode; isOptimal?: boolean; index: number; isExpanded: boolean; onToggle: () => void }) {
+function TableRow({ signal, tradeMode, isOptimal, index, isExpanded, onToggle, isWatched, onToggleWatch, isReversed }: { signal: SignalData; tradeMode: TradeMode; isOptimal?: boolean; index: number; isExpanded: boolean; onToggle: () => void; isWatched?: boolean; onToggleWatch?: (e: React.MouseEvent) => void; isReversed?: boolean }) {
   const isLong = signal.type === 'LONG';
   const isInteractive = true;
   
@@ -948,7 +1149,7 @@ function TableRow({ signal, tradeMode, isOptimal, index, isExpanded, onToggle }:
         className={cn(
           "transition-colors flex flex-col sm:table-row px-4 py-4 sm:p-0 border-b border-slate-800/50 sm:border-b-0", 
           isInteractive && "cursor-pointer",
-          isExpanded ? "bg-slate-800/40 animate-glow-rgb rounded-t-lg z-10 relative" : "hover:bg-slate-800/30"
+          isReversed ? "animate-glow-red z-20 relative rounded-lg" : isExpanded ? "bg-slate-800/40 animate-glow-rgb rounded-t-lg z-10 relative" : "hover:bg-slate-800/30"
         )}
       >
       <td className="sm:px-6 sm:py-4 hidden sm:table-cell text-slate-500 text-sm font-mono w-16">
@@ -958,6 +1159,19 @@ function TableRow({ signal, tradeMode, isOptimal, index, isExpanded, onToggle }:
         <div className="flex items-center justify-between sm:justify-start">
           <div className="flex items-center gap-2">
             <span className="sm:hidden text-slate-500 text-sm font-mono align-middle mr-1">#{index}</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleWatch?.(e);
+              }}
+              className={cn(
+                "p-1.5 rounded-md transition-colors",
+                isWatched ? "text-amber-400 bg-amber-400/10" : "text-slate-600 hover:text-slate-400 hover:bg-slate-800"
+              )}
+              title="Theo dõi đặc biệt"
+            >
+              {isWatched ? <BellRing className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+            </button>
             <div className="font-medium text-white flex items-center gap-1.5">
             {isOptimal && <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />}
             {signal.symbol.replace('USDT', '')}
