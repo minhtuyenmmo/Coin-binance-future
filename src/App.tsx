@@ -24,6 +24,7 @@ export default function App() {
   const [filterWashTrade, setFilterWashTrade] = useState<boolean>(true);
   const [filterTopCoin, setFilterTopCoin] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedSymbol, setExpandedSymbol] = useState<string | null>(null);
   const [tradeMode, setTradeMode] = useState<TradeMode>('VOLUME');
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateStatus, setUpdateStatus] = useState('Update Tool');
@@ -647,7 +648,15 @@ export default function App() {
                     </tr>
                   ) : (
                     tableSignals.map((signal, index) => (
-                      <TableRow key={signal.symbol} signal={signal} tradeMode={tradeMode} isOptimal={optimalSymbols.has(signal.symbol)} index={index + 1} />
+                      <TableRow 
+                        key={signal.symbol} 
+                        signal={signal} 
+                        tradeMode={tradeMode} 
+                        isOptimal={optimalSymbols.has(signal.symbol)} 
+                        index={index + 1}
+                        isExpanded={expandedSymbol === signal.symbol}
+                        onToggle={() => setExpandedSymbol(expandedSymbol === signal.symbol ? null : signal.symbol)}
+                      />
                     ))
                   )}
                 </tbody>
@@ -928,16 +937,19 @@ function TopCard({ signal, rank, tradeMode, isContrarian }: { signal: SignalData
   );
 }
 
-function TableRow({ signal, tradeMode, isOptimal, index }: { signal: SignalData; tradeMode: TradeMode; isOptimal?: boolean; index: number }) {
+function TableRow({ signal, tradeMode, isOptimal, index, isExpanded, onToggle }: { signal: SignalData; tradeMode: TradeMode; isOptimal?: boolean; index: number; isExpanded: boolean; onToggle: () => void }) {
   const isLong = signal.type === 'LONG';
-  const [isExpanded, setIsExpanded] = useState(false);
   const isInteractive = true;
   
   return (
     <>
       <tr 
-        onClick={() => isInteractive && setIsExpanded(!isExpanded)}
-        className={cn("hover:bg-slate-800/30 transition-colors flex flex-col sm:table-row px-4 py-4 sm:p-0 border-b border-slate-800/50 sm:border-b-0", isInteractive && "cursor-pointer hover:bg-slate-800/60")}
+        onClick={() => isInteractive && onToggle()}
+        className={cn(
+          "transition-colors flex flex-col sm:table-row px-4 py-4 sm:p-0 border-b border-slate-800/50 sm:border-b-0", 
+          isInteractive && "cursor-pointer",
+          isExpanded ? "bg-slate-800/40 animate-glow-rgb rounded-t-lg z-10 relative" : "hover:bg-slate-800/30"
+        )}
       >
       <td className="sm:px-6 sm:py-4 hidden sm:table-cell text-slate-500 text-sm font-mono w-16">
         #{index}
@@ -1013,8 +1025,8 @@ function TableRow({ signal, tradeMode, isOptimal, index }: { signal: SignalData;
       </td>
     </tr>
     {isExpanded && isInteractive && (
-      <tr className="flex flex-col sm:table-row bg-slate-900/50 sm:border-none">
-        <td colSpan={8} className="p-4 sm:px-6 border-b border-slate-800/50">
+      <tr className="flex flex-col sm:table-row bg-slate-900/50 sm:border-none relative animate-glow-rgb rounded-b-lg -mt-[1px] z-0">
+        <td colSpan={8} className="p-4 sm:px-6">
           <div className="mb-4 h-24 w-full">
             <MiniChart symbol={signal.symbol} color={isLong ? '#10b981' : '#f43f5e'} />
           </div>

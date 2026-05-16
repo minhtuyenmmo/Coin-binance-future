@@ -556,7 +556,7 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
                       <Fragment key={signal.symbol}>
                         <tr 
                           onClick={() => setExpandedSymbol(isExpanded ? null : signal.symbol)}
-                          className="hover:bg-slate-800/30 transition-colors cursor-pointer"
+                          className={`transition-colors cursor-pointer relative ${isExpanded ? "bg-slate-800/40 animate-glow-rgb border-b-0 z-10" : "hover:bg-slate-800/30"}`}
                         >
                           <td className="px-4 py-3 font-bold text-white flex items-center gap-2">
                             {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
@@ -575,7 +575,7 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
                           <td className="px-4 py-3 font-bold text-emerald-400 text-right">{winRateBoosted.toFixed(1)}%</td>
                         </tr>
                         {isExpanded && (
-                          <tr className="bg-slate-900/80 border-b border-slate-800/30">
+                          <tr className="bg-slate-900/80 relative animate-glow-rgb -mt-[1px] z-0">
                             <td colSpan={7} className="px-4 py-4 space-y-4">
                               <div className="h-24 w-full">
                                 <MiniChart symbol={signal.symbol} color={isLong ? '#10b981' : '#f43f5e'} />
