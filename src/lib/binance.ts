@@ -9,7 +9,7 @@ export interface BinanceTicker {
   lowPrice: string;
 }
 
-export type Timeframe = '5m' | '15m' | '30m' | '1h' | '2h' | '4h' | '1d' | '2d' | '1w' | '2w' | '1M' | '3M' | '6M' | '1y';
+export type Timeframe = '5m' | '15m' | '30m' | '1h' | '2h' | '4h' | '1d' | '2d' | '1w' | '2w' | '1M';
 
 export interface SignalData {
   symbol: string;
@@ -124,9 +124,6 @@ function generateSignalData(ticker: BinanceTicker, timeframe: Timeframe, now: nu
     case '1w': tfMultiplier = 8.0; hashSeed += 10080; break;
     case '2w': tfMultiplier = 12.0; hashSeed += 20160; break;
     case '1M': tfMultiplier = 18.0; hashSeed += 43200; break;
-    case '3M': tfMultiplier = 35.0; hashSeed += 129600; break;
-    case '6M': tfMultiplier = 60.0; hashSeed += 259200; break;
-    case '1y': tfMultiplier = 100.0; hashSeed += 518400; break;
   }
 
   // Tạo hash từ symbol để giữ tín hiệu nhất quán trên giao diện demo

@@ -577,6 +577,9 @@ export default function AdvancedTradeModal({ onClose, signals }: Props) {
                         {isExpanded && (
                           <tr className="bg-slate-900/80 border-b border-slate-800/30">
                             <td colSpan={7} className="px-4 py-4 space-y-4">
+                              <div className="h-24 w-full">
+                                <MiniChart symbol={signal.symbol} color={isLong ? '#10b981' : '#f43f5e'} />
+                              </div>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-950 p-3 rounded-lg border border-slate-800">
                                 <div className="flex flex-col bg-emerald-500/5 rounded p-2 border border-emerald-500/10">
                                   <span className="text-[10px] text-emerald-400/80 uppercase font-bold">Liquidation + Volume</span>

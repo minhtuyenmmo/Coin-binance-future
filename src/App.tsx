@@ -331,7 +331,7 @@ export default function App() {
           
           <div className="flex items-center gap-4 text-sm">
             <div className="hidden sm:flex bg-slate-900 rounded-lg p-1 border border-slate-800 max-w-[60vw] overflow-x-auto no-scrollbar">
-              {(['5m', '15m', '30m', '1h', '2h', '4h', '1d', '2d', '1w', '2w', '1M', '3M', '6M', '1y'] as Timeframe[]).map((tf) => (
+              {(['5m', '15m', '30m', '1h', '2h', '4h', '1d', '2d', '1w', '2w', '1M'] as Timeframe[]).map((tf) => (
                 <button
                   key={tf}
                   onClick={() => setTimeframe(tf)}
@@ -340,24 +340,19 @@ export default function App() {
                     timeframe === tf ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
                   )}
                 >
-                  {tf.toLowerCase() === '1m' ? '1M' : tf.toLowerCase() === '3m' ? '3M' : tf.toLowerCase() === '6m' ? '6M' : tf}
+                  {tf.toLowerCase() === '1m' ? '1M' : tf}
                 </button>
               ))}
             </div>
             
-            {lastUpdated && (
-              <span className="text-slate-400 hidden lg:inline-block">
-                Cập nhật lúc: {lastUpdated.toLocaleTimeString('vi-VN')}
-              </span>
-            )}
-            <div className="flex relative w-24 sm:w-32 md:w-48">
-              <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <div className="flex relative w-28 sm:w-32 md:w-48">
+              <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 sm:w-4 h-3.5 sm:h-4 text-slate-400" />
               <input
                 type="text"
                 placeholder="Tìm coin..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 text-white pl-8 sm:pl-9 pr-2 sm:pr-3 py-1.5 rounded-lg text-sm focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 placeholder:text-slate-500"
+                className="w-full bg-slate-900 border border-slate-700 text-white pl-8 sm:pl-9 pr-2 py-1.5 rounded-lg text-xs sm:text-sm focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 placeholder:text-slate-500"
               />
             </div>
             {tradeMode !== 'VOLUME' && (
@@ -374,17 +369,24 @@ export default function App() {
                 <span className="hidden sm:inline-block">{isAIScanning ? "Đang quét AI..." : "Kích hoạt AI agent"}</span>
               </button>
             )}
-            <button
-              onClick={async () => {
-                await loadData(timeframe);
-                setShouldUpdateContrarian(true);
-              }}
-              disabled={loading}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 border border-emerald-500 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 font-medium"
-            >
-              <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
-              <span className="hidden sm:inline-block">Làm mới</span>
-            </button>
+              <div className="flex flex-col items-end gap-1 relative">
+                <button
+                  onClick={async () => {
+                    await loadData(timeframe);
+                    setShouldUpdateContrarian(true);
+                  }}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 border border-emerald-500 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 font-medium"
+                >
+                  <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+                  <span className="hidden sm:inline-block">Làm mới</span>
+                </button>
+                {lastUpdated && (
+                  <span className="text-[10px] text-slate-400 absolute top-full mt-1 right-0 hidden sm:block whitespace-nowrap">
+                    Cập nhật lúc: {lastUpdated.toLocaleTimeString('vi-VN')}
+                  </span>
+                )}
+              </div>
           </div>
         </div>
       </header>
@@ -392,7 +394,7 @@ export default function App() {
       {/* Mobile Timeframe Scroll */}
       <div className="sm:hidden px-4 mt-4 overflow-x-auto pb-2 -mb-2 no-scrollbar">
         <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800 w-max">
-          {(['5m', '15m', '30m', '1h', '2h', '4h', '1d', '2d', '1w', '2w', '1M', '3M', '6M', '1y'] as Timeframe[]).map((tf) => (
+          {(['5m', '15m', '30m', '1h', '2h', '4h', '1d', '2d', '1w', '2w', '1M'] as Timeframe[]).map((tf) => (
             <button
               key={tf}
               onClick={() => setTimeframe(tf)}
@@ -401,9 +403,22 @@ export default function App() {
                 timeframe === tf ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
               )}
             >
-              {tf.toLowerCase() === '1m' ? '1M' : tf.toLowerCase() === '3m' ? '3M' : tf.toLowerCase() === '6m' ? '6M' : tf}
+              {tf.toLowerCase() === '1m' ? '1M' : tf}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="sm:hidden px-4 mt-4">
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Tìm coin..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-700 text-white pl-9 pr-3 py-2 rounded-lg text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 placeholder:text-slate-500"
+          />
         </div>
       </div>
 
@@ -1000,6 +1015,9 @@ function TableRow({ signal, tradeMode, isOptimal, index }: { signal: SignalData;
     {isExpanded && isInteractive && (
       <tr className="flex flex-col sm:table-row bg-slate-900/50 sm:border-none">
         <td colSpan={8} className="p-4 sm:px-6 border-b border-slate-800/50">
+          <div className="mb-4 h-24 w-full">
+            <MiniChart symbol={signal.symbol} color={isLong ? '#10b981' : '#f43f5e'} />
+          </div>
           <SignalIndicatorsDetail signal={signal} tradeMode={tradeMode} />
         </td>
       </tr>
